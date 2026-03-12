@@ -1,8 +1,9 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: AI Review now robustly renames file (handles legacy names like review-...--date.md), updates category+confidence, appends summary. Table + stats refresh LIVE after EVERY thought (real-time update). DB (file system) now correctly reflects new info.
+# purpose: Confidence Threshold is ONLY for AI (injected into Categorization Prompt). Removed from all defaults/fallbacks everywhere else. Bulk edit + stats clean.
 
 import re
 import json
+from datetime import datetime
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -60,7 +61,7 @@ def get_vault_stats():
             name_lower = f.name.lower()
             stats["total_notes"] += 1
             conf_match = re.search(r'-([0-9.]+)-\d{8}\.md$', f.name)
-            conf = float(conf_match.group(1)) if conf_match else 0.65
+            conf = float(conf_match.group(1)) if conf_match else 0.0
             total_conf += conf
             if name_lower.startswith("people-"):
                 stats["People"] += 1
@@ -81,7 +82,7 @@ def get_vault_stats():
         count = stats[cat]
         if count > 0:
             stats[f"avg_{cat}"] = round(sum_conf[cat] / count, 2)
-    stats["avg_all"] = round(total_conf / stats["total_notes"], 2) if stats["total_notes"] > 0 else 0.65
+    stats["avg_all"] = round(total_conf / stats["total_notes"], 2) if stats["total_notes"] > 0 else 0.0
     return stats
 
 @app.get("/api/models")
@@ -130,7 +131,7 @@ async def api_save_prompt(request: dict = Body(...)):
 
 @app.post("/api/save_threshold")
 async def api_save_threshold(request: dict = Body(...)):
-    value = float(request.get("value", 0.65))
+    value = float(request.get("value", 0.60))
     prompt_manager.save_threshold(value)
     return {"status": "saved"}
 
@@ -149,7 +150,12 @@ async def enhance_note(request: dict = Body(...)):
     if not (p.exists() and p.is_file()):
         return {"status": "failed"}
     content = p.read_text(encoding="utf-8")
-    review_prompt = prompt_manager.get_prompt("categorization").replace("{thought}", content)
+    base_prompt = prompt_manager.get_prompt("categorization")
+    threshold = prompt_manager.get_threshold()
+    review_prompt = base_prompt.replace("{thought}", content) + f"""
+
+Review Threshold: {threshold:.2f}
+If your confidence would be below this threshold, you MUST use category "Review". Be strict."""
     assignment = model_manager.get_assignment()
     primary_model = assignment.get("primary", "qwen2.5:14b")
     print(f"[AI REVIEW PROMPT SENT TO {primary_model}]\n{review_prompt}\n")
@@ -158,23 +164,17 @@ async def enhance_note(request: dict = Body(...)):
     try:
         data = json.loads(summary.strip())
         new_category = data.get("category", "Review")
-        new_confidence = float(data.get("confidence", 0.65))
-        # ROBUST slug + date extraction (handles legacy names like review-...--date.md)
+        new_confidence = float(data.get("confidence", 0.0))
         stem = p.stem
-        # Remove old category prefix
         if '-' in stem:
             slug_part = stem.split('-', 1)[1]
         else:
             slug_part = stem
-        # Clean double dashes / trailing dashes
         slug = re.sub(r'--+', '-', slug_part).strip('-')
-        # Extract date if present at end
         date_match = re.search(r'(\d{8})$', slug)
+        date_part = date_match.group(1) if date_match else "20260312"
         if date_match:
-            date_part = date_match.group(1)
             slug = slug[:-len(date_part)].strip('-')
-        else:
-            date_part = "20260312"
         new_name = f"{new_category.lower()}-{slug}-{new_confidence:.2f}-{date_part}.md"
         new_p = p.parent / new_name
         if p != new_p:
@@ -188,6 +188,41 @@ async def enhance_note(request: dict = Body(...)):
     except Exception as e:
         print(f"[AI REVIEW JSON PARSE FAILED] {e}")
         return {"status": "failed"}
+
+@app.post("/api/bulk_edit")
+async def bulk_edit(request: dict = Body(...)):
+    paths = request.get("paths", [])
+    new_category = request.get("new_category", "keep")
+    new_confidence = float(request.get("new_confidence", 0.0))
+    force_review = request.get("force_review", False)
+    for path_str in paths:
+        p = VAULT_ROOT / path_str
+        if not (p.exists() and p.is_file()):
+            continue
+        content = p.read_text(encoding="utf-8")
+        stem = p.stem
+        cat_match = re.match(r'^([a-z]+)-', stem)
+        current_cat = cat_match.group(1).capitalize() if cat_match else "Review"
+        conf_match = re.search(r'-([0-9.]+)-\d{8}$', stem)
+        current_conf = float(conf_match.group(1)) if conf_match else 0.0
+        if force_review:
+            new_category = "Review"
+        elif new_category == "keep":
+            new_category = current_cat
+        slug_part = re.sub(r'^[a-z]+-', '', stem)
+        slug = re.sub(r'--+', '-', slug_part).strip('-')
+        date_match = re.search(r'(\d{8})$', stem)
+        date_part = date_match.group(1) if date_match else datetime.now().strftime("%Y%m%d")
+        new_name = f"{new_category.lower()}-{slug}-{new_confidence:.2f}-{date_part}.md"
+        new_p = p.parent / new_name
+        if p != new_p:
+            p.rename(new_p)
+            print(f"[BULK RENAME SUCCESS] {p.name} → {new_name}")
+            p = new_p
+        with open(p, "a", encoding="utf-8") as fp:
+            fp.write(f"\n\n## Bulk Edit Applied (category={new_category}, confidence={new_confidence})\n")
+        print(f"[BULK EDIT SUCCESS] {path_str} updated (cat={new_category}, conf={new_confidence})")
+    return {"status": "success"}
 
 @app.post("/api/chat")
 async def chat(request: dict = Body(...)):
@@ -204,7 +239,7 @@ async def api_save_thought(request: dict = Body(...)):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return f"""
+    return """
 <!DOCTYPE html>
 <html>
 <head>
@@ -213,7 +248,7 @@ async def root():
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-        body {{ font-family: 'Inter', system-ui; }}
+        body { font-family: 'Inter', system-ui; }
     </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100">
@@ -264,42 +299,42 @@ async def root():
                     <div class="text-sm text-zinc-500">Total Thoughts</div>
                     <div class="flex justify-between items-baseline">
                         <div id="totalNotes" class="text-5xl font-semibold">0</div>
-                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-all">0.65</span></div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-all">0.00</span></div>
                     </div>
                 </div>
                 <div onclick="setCategoryFilter('People')" id="card-People" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer">
                     <div class="text-sm text-zinc-500">People</div>
                     <div class="flex justify-between items-baseline">
                         <div id="peopleCount" class="text-5xl font-semibold">0</div>
-                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-People">0.65</span></div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-People">0.00</span></div>
                     </div>
                 </div>
                 <div onclick="setCategoryFilter('Projects')" id="card-Projects" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer">
                     <div class="text-sm text-zinc-500">Projects</div>
                     <div class="flex justify-between items-baseline">
                         <div id="projectsCount" class="text-5xl font-semibold">0</div>
-                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Projects">0.65</span></div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Projects">0.00</span></div>
                     </div>
                 </div>
                 <div onclick="setCategoryFilter('Ideas')" id="card-Ideas" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer">
                     <div class="text-sm text-zinc-500">Ideas</div>
                     <div class="flex justify-between items-baseline">
                         <div id="ideasCount" class="text-5xl font-semibold">0</div>
-                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Ideas">0.65</span></div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Ideas">0.00</span></div>
                     </div>
                 </div>
                 <div onclick="setCategoryFilter('Admin')" id="card-Admin" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer">
                     <div class="text-sm text-zinc-500">Admin</div>
                     <div class="flex justify-between items-baseline">
                         <div id="adminCount" class="text-5xl font-semibold">0</div>
-                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Admin">0.65</span></div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Admin">0.00</span></div>
                     </div>
                 </div>
                 <div onclick="setCategoryFilter('Review')" id="card-Review" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer">
                     <div class="text-sm text-zinc-500">Review</div>
                     <div class="flex justify-between items-baseline">
                         <div id="reviewCount" class="text-5xl font-semibold">0</div>
-                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Review">0.65</span></div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Review">0.00</span></div>
                     </div>
                 </div>
             </div>
@@ -369,7 +404,7 @@ async def root():
         <div id="tab3" class="flex-1 p-6 overflow-hidden">
             <div class="space-y-6 h-full flex flex-col">
                 <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
-                    <h3 class="font-semibold text-lg mb-3">Categorization Prompt <span class="text-xs text-emerald-400">(used by AI Review)</span></h3>
+                    <h3 class="font-semibold text-lg mb-3">Categorization Prompt <span class="text-xs text-emerald-400">(used by both new thoughts AND AI Review)</span></h3>
                     <textarea id="categorizationPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
                     <div class="flex gap-3 mt-4">
                         <button onclick="saveCategorizationPrompt()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
@@ -393,7 +428,7 @@ async def root():
                     </div>
                 </div>
                 <div class="bg-zinc-900 rounded-3xl p-5">
-                    <h3 class="font-semibold text-lg mb-3">Confidence Threshold</h3>
+                    <h3 class="font-semibold text-lg mb-3">AI Review Threshold <span class="text-xs text-emerald-400">(tells AI when to force Review bucket)</span></h3>
                     <div class="flex items-center gap-6">
                         <input type="range" id="thresholdSlider" min="0.60" max="1.00" step="0.01" value="0.65" class="flex-1 accent-violet-500" oninput="updateThresholdValue()">
                         <span id="thresholdValue" class="font-mono text-lg w-12 text-right">0.65</span>
@@ -405,7 +440,7 @@ async def root():
     </div>
 </div>
 
-<!-- ELEGANT MARKDOWN MODAL WITH DELETE -->
+<!-- NOTE MODAL -->
 <div id="noteModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
     <div class="bg-zinc-900 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between px-8 py-5 border-b border-zinc-700">
@@ -429,6 +464,41 @@ async def root():
     </div>
 </div>
 
+<!-- BULK EDIT MODAL -->
+<div id="bulkEditModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+    <div class="bg-zinc-900 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-zinc-700 flex items-center justify-between">
+            <h3 id="bulkEditTitle" class="font-semibold text-lg">Bulk Edit 0 Thoughts</h3>
+            <button onclick="hideBulkEditModal()" class="text-zinc-400 hover:text-white text-2xl">×</button>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <label class="block text-sm text-zinc-400 mb-2">New Category</label>
+                <select id="bulkNewCategory" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 text-zinc-100 focus:outline-none focus:border-violet-500">
+                    <option value="keep">Keep current</option>
+                    <option value="People">People</option>
+                    <option value="Projects">Projects</option>
+                    <option value="Ideas">Ideas</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Review">Review</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm text-zinc-400 mb-2">New Confidence</label>
+                <input id="bulkNewConfidence" type="number" step="0.01" min="0.00" max="1.00" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 text-zinc-100 focus:outline-none focus:border-violet-500 font-mono">
+            </div>
+            <div class="flex items-center gap-3">
+                <input id="bulkSetReview" type="checkbox" class="accent-violet-500 w-5 h-5">
+                <label class="text-zinc-300">Set Needs Review</label>
+            </div>
+        </div>
+        <div class="p-4 border-t border-zinc-700 flex gap-3">
+            <button onclick="hideBulkEditModal()" class="flex-1 bg-zinc-700 hover:bg-zinc-600 py-3 rounded-2xl font-medium">Cancel</button>
+            <button onclick="applyBulkEdit()" class="flex-1 bg-blue-600 hover:bg-blue-700 py-3 rounded-2xl font-medium">Apply to All Selected</button>
+        </div>
+    </div>
+</div>
+
 <script>
 let messages = [];
 let modelsData = [];
@@ -439,7 +509,7 @@ let sortColumn = 0;
 let sortAsc = true;
 let selectedPaths = new Set();
 
-async function refreshStats() {{
+async function refreshStats() {
     const res = await fetch('/api/stats');
     const stats = await res.json();
     document.getElementById('totalNotes').textContent = stats.total_notes;
@@ -448,215 +518,244 @@ async function refreshStats() {{
     document.getElementById('ideasCount').textContent = stats.Ideas;
     document.getElementById('adminCount').textContent = stats.Admin;
     document.getElementById('reviewCount').textContent = stats.Review;
-
     document.getElementById('avg-all').textContent = stats.avg_all.toFixed(2);
     document.getElementById('avg-People').textContent = stats.avg_People.toFixed(2);
     document.getElementById('avg-Projects').textContent = stats.avg_Projects.toFixed(2);
     document.getElementById('avg-Ideas').textContent = stats.avg_Ideas.toFixed(2);
     document.getElementById('avg-Admin').textContent = stats.avg_Admin.toFixed(2);
     document.getElementById('avg-Review').textContent = stats.avg_Review.toFixed(2);
-}}
+}
 
-function highlightActiveCard() {{
+function highlightActiveCard() {
     document.querySelectorAll('.category-card').forEach(c => c.classList.remove('border-violet-500'));
-    if (currentCategoryFilter === 'all') {{
+    if (currentCategoryFilter === 'all') {
         document.getElementById('card-all').classList.add('border-violet-500');
-    }} else {{
-        document.getElementById(`card-${{currentCategoryFilter}}`).classList.add('border-violet-500');
-    }}
-}}
+    } else {
+        document.getElementById(`card-${currentCategoryFilter}`).classList.add('border-violet-500');
+    }
+}
 
-function setCategoryFilter(cat) {{
+function setCategoryFilter(cat) {
     currentCategoryFilter = cat;
-    document.getElementById('tableTitle').textContent = cat === 'all' ? 'All Thoughts' : `${{cat}} Thoughts`;
+    document.getElementById('tableTitle').textContent = cat === 'all' ? 'All Thoughts' : `${cat} Thoughts`;
     renderTable();
     highlightActiveCard();
-}}
+}
 
-async function renderTable() {{
+async function renderTable() {
     const res = await fetch('/api/notes');
     let notes = await res.json();
-
-    if (currentCategoryFilter !== 'all') {{
+    if (currentCategoryFilter !== 'all') {
         notes = notes.filter(n => n.name.toLowerCase().startsWith(currentCategoryFilter.toLowerCase() + '-'));
-    }}
-
-    notes.sort((a, b) => {{
+    }
+    notes.sort((a, b) => {
         let va = a.name, vb = b.name;
-        if (sortColumn === 3) {{
-            va = va.match(/\\d{{8}}$/) ? va.match(/\\d{{8}}$/)[0] : '0';
-            vb = vb.match(/\\d{{8}}$/) ? vb.match(/\\d{{8}}$/)[0] : '0';
-        }}
+        if (sortColumn === 3) {
+            va = va.match(/\\d{8}$/) ? va.match(/\\d{8}$/)[0] : '0';
+            vb = vb.match(/\\d{8}$/) ? vb.match(/\\d{8}$/)[0] : '0';
+        }
         if (va < vb) return sortAsc ? -1 : 1;
         if (va > vb) return sortAsc ? 1 : -1;
         return 0;
-    }});
-
+    });
     let html = '';
-    notes.forEach(n => {{
+    notes.forEach(n => {
         const catMatch = n.name.match(/^([a-z]+)-/i);
         const cat = catMatch ? catMatch[1].charAt(0).toUpperCase() + catMatch[1].slice(1) : 'Review';
-        const confMatch = n.name.match(/-([0-9.]+)-\\d{{8}}\\.md$/);
-        const conf = confMatch ? confMatch[1] : '0.65';
-        const dateMatch = n.name.match(/(\\d{{8}})\\.md$/);
+        const confMatch = n.name.match(/-([0-9.]+)-\\d{8}\\.md$/);
+        const conf = confMatch ? confMatch[1] : '0.00';
+        const dateMatch = n.name.match(/(\\d{8})\\.md$/);
         const date = dateMatch ? dateMatch[1] : '';
         const checked = selectedPaths.has(n.path) ? 'checked' : '';
-        html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800 cursor-pointer" onclick="if(!event.target.closest('input[type=checkbox]')) showNoteModal('${{n.path}}')">
-            <td class="p-4"><input type="checkbox" class="row-checkbox accent-violet-500 w-5 h-5" data-path="${{n.path}}" ${{checked}} onclick="event.stopImmediatePropagation(); toggleRow(this)"></td>
-            <td class="p-4 font-medium">${{n.name}}</td>
-            <td class="p-4">${{cat}}</td>
-            <td class="p-4 text-emerald-400 font-mono">${{conf}}</td>
-            <td class="p-4 text-zinc-400">${{date}}</td>
+        html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800 cursor-pointer" onclick="if(!event.target.closest('input[type=checkbox]')) showNoteModal('${n.path}')">
+            <td class="p-4"><input type="checkbox" class="row-checkbox accent-violet-500 w-5 h-5" data-path="${n.path}" ${checked} onclick="event.stopImmediatePropagation(); toggleRow(this)"></td>
+            <td class="p-4 font-medium">${n.name}</td>
+            <td class="p-4">${cat}</td>
+            <td class="p-4 text-emerald-400 font-mono">${conf}</td>
+            <td class="p-4 text-zinc-400">${date}</td>
             <td class="p-4">
-                <button onclick="event.stopImmediatePropagation(); deleteNote('${{n.path}}');" class="text-red-400 hover:text-red-500">🗑️</button>
+                <button onclick="event.stopImmediatePropagation(); deleteNote('${n.path}');" class="text-red-400 hover:text-red-500">🗑️</button>
             </td>
         </tr>`;
-    }});
-
+    });
     document.getElementById('thoughtsTableBody').innerHTML = html;
-    document.getElementById('filteredCount').textContent = `${{notes.length}} thoughts`;
+    document.getElementById('filteredCount').textContent = `${notes.length} thoughts`;
     updateBulkUI();
-}}
+}
 
-function toggleRow(checkbox) {{
+function toggleRow(checkbox) {
     const path = checkbox.dataset.path;
     if (checkbox.checked) selectedPaths.add(path);
     else selectedPaths.delete(path);
     updateBulkUI();
-}}
+}
 
-function toggleSelectAll() {{
+function toggleSelectAll() {
     const checked = document.getElementById('selectAllHeader').checked;
-    document.querySelectorAll('.row-checkbox').forEach(chk => {{
+    document.querySelectorAll('.row-checkbox').forEach(chk => {
         chk.checked = checked;
         const path = chk.dataset.path;
         if (checked) selectedPaths.add(path);
         else selectedPaths.delete(path);
-    }});
+    });
     updateBulkUI();
-}}
+}
 
-function updateBulkUI() {{
+function updateBulkUI() {
     const count = selectedPaths.size;
     const bar = document.getElementById('bulkActions');
     bar.classList.toggle('hidden', count === 0);
-}}
+}
 
-async function deleteSelected() {{
-    if (selectedPaths.size === 0 || !confirm(`Delete ${{selectedPaths.size}} selected thoughts permanently?`)) return;
-    for (let path of Array.from(selectedPaths)) {{
-        await fetch(`/api/note/${{path}}`, {{method: 'DELETE'}});
-    }}
+async function deleteSelected() {
+    if (selectedPaths.size === 0 || !confirm(`Delete ${selectedPaths.size} selected thoughts permanently?`)) return;
+    for (let path of Array.from(selectedPaths)) {
+        await fetch(`/api/note/${path}`, {method: 'DELETE'});
+    }
     selectedPaths.clear();
     renderTable();
     refreshStats();
-}}
+}
 
-async function bulkEditSelected() {{
-    if (selectedPaths.size === 0) return;
-    alert(`Bulk edit coming soon for ${{selectedPaths.size}} thoughts`);
-}}
+function bulkEditSelected() {
+    const count = selectedPaths.size;
+    if (count === 0) return;
+    document.getElementById('bulkEditTitle').textContent = `Bulk Edit ${count} Thoughts`;
+    let sumConf = 0;
+    let validCount = 0;
+    for (let path of Array.from(selectedPaths)) {
+        const name = path.split('/').pop() || '';
+        const confMatch = name.match(/-([0-9.]+)-\\d{8}\\.md$/);
+        if (confMatch) {
+            sumConf += parseFloat(confMatch[1]);
+            validCount++;
+        }
+    }
+    const avgConf = validCount > 0 ? (sumConf / validCount) : 0.75;
+    document.getElementById('bulkNewConfidence').value = avgConf.toFixed(2);
+    document.getElementById('bulkSetReview').checked = false;
+    document.getElementById('bulkEditModal').classList.remove('hidden');
+    document.getElementById('bulkEditModal').classList.add('flex');
+}
 
-// LIVE AI REVIEW WITH ROBUST RENAME + REAL-TIME UPDATE AFTER EVERY THOUGHT
-async function sendForAIReview() {{
+function hideBulkEditModal() {
+    const modal = document.getElementById('bulkEditModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+async function applyBulkEdit() {
+    const paths = Array.from(selectedPaths);
+    const newCat = document.getElementById('bulkNewCategory').value;
+    const newConf = parseFloat(document.getElementById('bulkNewConfidence').value);
+    const forceReview = document.getElementById('bulkSetReview').checked;
+    hideBulkEditModal();
+    const res = await fetch('/api/bulk_edit', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            paths: paths,
+            new_category: newCat,
+            new_confidence: newConf,
+            force_review: forceReview
+        })
+    });
+    const data = await res.json();
+    if (data.status === "success") {
+        console.log(`[BULK EDIT SUCCESS] ${paths.length} thoughts updated`);
+        selectedPaths.clear();
+        renderTable();
+        refreshStats();
+        updateBulkUI();
+    }
+}
+
+async function sendForAIReview() {
     const paths = Array.from(selectedPaths);
     if (paths.length === 0) return;
-
     const reviewBtn = document.getElementById('reviewButton');
     const originalHTML = reviewBtn.innerHTML;
     reviewBtn.disabled = true;
     let processed = 0;
-
-    for (let path of paths) {{
+    for (let path of paths) {
         processed++;
-        reviewBtn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span> AI Review ${{processed}}/${{paths.length}}`;
-
-        try {{
-            const res = await fetch('/api/enhance_note', {{
+        reviewBtn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span> AI Review ${processed}/${paths.length}`;
+        try {
+            const res = await fetch('/api/enhance_note', {
                 method: 'POST',
-                headers: {{'Content-Type': 'application/json'}},
-                body: JSON.stringify({{path}})
-            }});
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({path})
+            });
             const data = await res.json();
-
-            if (data.status === 'enhanced') {{
-                console.log(`[AI REVIEW SUCCESS] ${{path}} → ${{data.new_path}}`);
+            if (data.status === 'enhanced') {
+                console.log(`[AI REVIEW SUCCESS] ${path} → ${data.new_path}`);
                 selectedPaths.delete(path);
-                const chk = document.querySelector(`input[data-path="${{path}}"]`);
+                const chk = document.querySelector(`input[data-path="${path}"]`);
                 if (chk) chk.checked = false;
-            }} else {{
-                console.log(`[AI REVIEW FAILED] ${{path}}`);
-            }}
-        }} catch (e) {{
-            console.error(`[AI REVIEW ERROR] ${{path}}: ${{e}}`);
-        }}
-
-        // REAL-TIME UPDATE AFTER EVERY THOUGHT
+            }
+        } catch (e) {
+            console.error(`[AI REVIEW ERROR] ${path}: ${e}`);
+        }
         await renderTable();
         await refreshStats();
         updateBulkUI();
-    }}
-
+    }
     reviewBtn.disabled = false;
     reviewBtn.innerHTML = originalHTML;
-}}
+}
 
-async function deleteNote(path) {{
+async function deleteNote(path) {
     if (!confirm("Delete this thought permanently?")) return;
-    await fetch(`/api/note/${{path}}`, {{method: 'DELETE'}});
+    await fetch(`/api/note/${path}`, {method: 'DELETE'});
     selectedPaths.delete(path);
     renderTable();
     refreshStats();
-}}
+}
 
-function sortTable(col) {{
+function sortTable(col) {
     if (sortColumn === col) sortAsc = !sortAsc;
-    else {{ sortColumn = col; sortAsc = true; }}
+    else { sortColumn = col; sortAsc = true; }
     renderTable();
-}}
+}
 
-async function loadModels() {{
+async function loadModels() {
     const res = await fetch('/api/models');
     modelsData = await res.json();
-}}
-async function loadModelConfig() {{
+}
+async function loadModelConfig() {
     const res = await fetch('/api/model_config');
     return await res.json();
-}}
-async function loadOllamaStatus() {{
+}
+async function loadOllamaStatus() {
     const res = await fetch('/api/ollama_status');
     return await res.json();
-}}
-async function renderModelTable() {{
+}
+async function renderModelTable() {
     const status = await loadOllamaStatus();
     let assignment = await loadModelConfig();
-
     const statusEl = document.getElementById('ollamaStatus');
     statusEl.innerHTML = `
-        <span class="px-3 py-1 rounded-full text-xs font-medium ${{status.connected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}}">
-            ${{status.connected ? '✅ Connected' : '❌ Not reachable'}}
+        <span class="px-3 py-1 rounded-full text-xs font-medium ${status.connected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}">
+            ${status.connected ? '✅ Connected' : '❌ Not reachable'}
         </span>
-        <span class="font-mono text-xs">Host: ${{status.host}} • ${{status.models_count}} models loaded</span>
+        <span class="font-mono text-xs">Host: ${status.host} • ${status.models_count} models loaded</span>
     `;
-
-    if (modelsData.length === 0) {{
+    if (modelsData.length === 0) {
         document.getElementById('modelTable').classList.add('hidden');
         document.getElementById('emptyState').classList.remove('hidden');
         return;
-    }}
+    }
     document.getElementById('modelTable').classList.remove('hidden');
     document.getElementById('emptyState').classList.add('hidden');
-
     const priority = [assignment.primary, assignment.fallback1, assignment.fallback2, assignment.fallback3];
-    modelsData.sort((a, b) => {{
+    modelsData.sort((a, b) => {
         const pa = priority.indexOf(a.name);
         const pb = priority.indexOf(b.name);
         if (pa === -1 && pb === -1) return 0;
         if (pa === -1) return 1;
         if (pb === -1) return -1;
         return pa - pb;
-    }});
-
+    });
     let html = `
         <table class="w-full border-collapse text-sm">
             <thead><tr class="bg-zinc-800 text-zinc-400">
@@ -668,131 +767,128 @@ async function renderModelTable() {{
             </tr></thead>
             <tbody>
     `;
-    modelsData.forEach(m => {{
+    modelsData.forEach(m => {
         html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800">
-            <td class="p-4 font-medium">${{m.name}} <span class="text-xs text-zinc-500">(${{m.size_gb}} GB)</span></td>
-            <td class="p-4 text-center"><input type="radio" name="primary" value="${{m.name}}" ${{assignment.primary===m.name?'checked':''}} onchange="updateAssignment(this)"></td>
-            <td class="p-4 text-center"><input type="radio" name="fallback1" value="${{m.name}}" ${{assignment.fallback1===m.name?'checked':''}} onchange="updateAssignment(this)"></td>
-            <td class="p-4 text-center"><input type="radio" name="fallback2" value="${{m.name}}" ${{assignment.fallback2===m.name?'checked':''}} onchange="updateAssignment(this)"></td>
-            <td class="p-4 text-center"><input type="radio" name="fallback3" value="${{m.name}}" ${{assignment.fallback3===m.name?'checked':''}} onchange="updateAssignment(this)"></td>
+            <td class="p-4 font-medium">${m.name} <span class="text-xs text-zinc-500">(${m.size_gb} GB)</span></td>
+            <td class="p-4 text-center"><input type="radio" name="primary" value="${m.name}" ${assignment.primary===m.name?'checked':''} onchange="updateAssignment(this)"></td>
+            <td class="p-4 text-center"><input type="radio" name="fallback1" value="${m.name}" ${assignment.fallback1===m.name?'checked':''} onchange="updateAssignment(this)"></td>
+            <td class="p-4 text-center"><input type="radio" name="fallback2" value="${m.name}" ${assignment.fallback2===m.name?'checked':''} onchange="updateAssignment(this)"></td>
+            <td class="p-4 text-center"><input type="radio" name="fallback3" value="${m.name}" ${assignment.fallback3===m.name?'checked':''} onchange="updateAssignment(this)"></td>
         </tr>`;
-    }});
+    });
     html += `</tbody></table>`;
     document.getElementById('modelTable').innerHTML = html;
-}}
-async function updateAssignment(el) {{
-    let assignment = {{}};
-    ['primary','fallback1','fallback2','fallback3'].forEach(role => {{
-        const checked = document.querySelector(`input[name="${{role}}"]:checked`);
+}
+async function updateAssignment(el) {
+    let assignment = {};
+    ['primary','fallback1','fallback2','fallback3'].forEach(role => {
+        const checked = document.querySelector(`input[name="${role}"]:checked`);
         assignment[role] = checked ? checked.value : '';
-    }});
-    await fetch('/api/model_config', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify(assignment)}});
+    });
+    await fetch('/api/model_config', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify(assignment)});
     await renderModelTable();
-}}
-async function refreshModels() {{
+}
+async function refreshModels() {
     await loadModels();
     await renderModelTable();
-}}
-async function showNoteModal(path) {{
+}
+async function showNoteModal(path) {
     currentNotePath = path;
-    const res = await fetch(`/api/note/${{path}}`);
+    const res = await fetch(`/api/note/${path}`);
     const data = await res.json();
     if (data.error) return alert(data.error);
-
     document.getElementById('modalFilename').textContent = data.filename;
     document.getElementById('modalContent').textContent = data.content;
-    document.getElementById('modalOpenObsidian').href = `/vault/${{path}}`;
+    document.getElementById('modalOpenObsidian').href = `/vault/${path}`;
     document.getElementById('noteModal').classList.remove('hidden');
     document.getElementById('noteModal').classList.add('flex');
-}}
-async function deleteCurrentNote() {{
+}
+async function deleteCurrentNote() {
     if (!currentNotePath) return;
     if (!confirm("Permanently delete this note?")) return;
-
-    const res = await fetch(`/api/note/${{currentNotePath}}`, {{method: 'DELETE'}});
-    if ((await res.json()).status === "deleted") {{
+    const res = await fetch(`/api/note/${currentNotePath}`, {method: 'DELETE'});
+    if ((await res.json()).status === "deleted") {
         selectedPaths.delete(currentNotePath);
         closeModal();
         renderTable();
         refreshStats();
-    }}
-}}
-function closeModal() {{
+    }
+}
+function closeModal() {
     const modal = document.getElementById('noteModal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
     currentNotePath = '';
-}}
-document.addEventListener('keydown', (e) => {{
-    if (e.key === 'Escape') closeModal();
-}});
-document.getElementById('noteModal').addEventListener('click', (e) => {{
+}
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeModal();
+        hideBulkEditModal();
+    }
+});
+document.getElementById('noteModal').addEventListener('click', (e) => {
     if (e.target.id === 'noteModal') closeModal();
-}});
-async function buildVault() {{
-    await fetch('/build', {{method:'POST'}});
+});
+async function buildVault() {
+    await fetch('/build', {method:'POST'});
     renderTable();
     refreshStats();
-}}
-async function enhanceWithAI() {{
-    await fetch('/api/enhance', {{method:'POST'}});
+}
+async function enhanceWithAI() {
+    await fetch('/api/enhance', {method:'POST'});
     alert('All notes enhanced with Ollama summaries!');
     renderTable();
     refreshStats();
-}}
-async function sendChat() {{
+}
+async function sendChat() {
     const input = document.getElementById('chatInput');
     const msg = input.value.trim();
     if (!msg) return;
-    messages.push({{role:'user', content:msg}});
+    messages.push({role:'user', content:msg});
     renderChat();
     input.value = '';
-    const res = await fetch('/api/chat', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{message:msg}})}});
+    const res = await fetch('/api/chat', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({message:msg})});
     const data = await res.json();
-    messages.push({{role:'assistant', content:data.reply}});
+    messages.push({role:'assistant', content:data.reply});
     renderChat();
-}}
-function renderChat() {{
+}
+function renderChat() {
     const win = document.getElementById('chatWindow');
     win.innerHTML = messages.map(m => `
-        <div class="mb-6 ${{m.role==='user'?'text-right':''}}">
-            <div class="inline-block max-w-lg px-5 py-3 rounded-3xl ${{m.role==='user'?'bg-violet-600':'bg-zinc-800'}}">
-                ${{m.content}}
+        <div class="mb-6 ${m.role==='user'?'text-right':''}">
+            <div class="inline-block max-w-lg px-5 py-3 rounded-3xl ${m.role==='user'?'bg-violet-600':'bg-zinc-800'}">
+                ${m.content}
             </div>
         </div>
     `).join('');
     win.scrollTop = win.scrollHeight;
-}}
-async function saveThought() {{
+}
+async function saveThought() {
     const input = document.getElementById('thoughtInput');
     const thought = input.value.trim();
     if (!thought) return;
-
     const btn = document.getElementById('saveButton');
     const originalHTML = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>Thinking...`;
-
-    const res = await fetch('/api/save_thought', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{thought}})}});
+    const res = await fetch('/api/save_thought', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({thought})});
     const data = await res.json();
-
     btn.disabled = false;
     btn.innerHTML = originalHTML;
-
     const replySection = document.getElementById('replySection');
-    if (data.success) {{
+    if (data.success) {
         replySection.innerHTML = `
             <div class="text-sm font-semibold mb-1">🤖 2nd Brain Reply:</div>
-            <p>${{data.reply}}</p>
+            <p>${data.reply}</p>
         `;
         input.value = '';
         renderTable();
         refreshStats();
-    }} else {{
-        replySection.innerHTML = `<p class="text-red-600">Error: ${{data.reply}}</p>`;
-    }}
-}}
-async function loadPrompts() {{
+    } else {
+        replySection.innerHTML = `<p class="text-red-600">Error: ${data.reply}</p>`;
+    }
+}
+async function loadPrompts() {
     const res = await fetch('/api/prompts');
     const data = await res.json();
     document.getElementById('categorizationPrompt').value = data.categorization;
@@ -800,59 +896,57 @@ async function loadPrompts() {{
     currentThreshold = data.threshold;
     document.getElementById('thresholdSlider').value = currentThreshold;
     document.getElementById('thresholdValue').textContent = currentThreshold.toFixed(2);
-}}
-async function saveCategorizationPrompt() {{
+}
+async function saveCategorizationPrompt() {
     const value = document.getElementById('categorizationPrompt').value;
-    await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"categorization", value}})}});
-}}
-async function resetCategorizationPrompt() {{
-    if (confirm("Reset to default?")) {{
-        await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"categorization", value:""}})}});
+    await fetch('/api/save_prompt', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({key:"categorization", value})});
+}
+async function resetCategorizationPrompt() {
+    if (confirm("Reset to default?")) {
+        await fetch('/api/save_prompt', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({key:"categorization", value:""})});
         loadPrompts();
-    }}
-}}
-async function saveSearchPrompt() {{
+    }
+}
+async function saveSearchPrompt() {
     const value = document.getElementById('searchPrompt').value;
-    await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"search", value}})}});
-}}
-async function resetSearchPrompt() {{
-    if (confirm("Reset to default?")) {{
-        await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"search", value:""}})}});
+    await fetch('/api/save_prompt', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({key:"search", value})});
+}
+async function resetSearchPrompt() {
+    if (confirm("Reset to default?")) {
+        await fetch('/api/save_prompt', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({key:"search", value:""})});
         loadPrompts();
-    }}
-}}
-function updateThresholdValue() {{
+    }
+}
+function updateThresholdValue() {
     currentThreshold = parseFloat(document.getElementById('thresholdSlider').value);
     document.getElementById('thresholdValue').textContent = currentThreshold.toFixed(2);
-}}
-async function saveThreshold() {{
-    await fetch('/api/save_threshold', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{value: currentThreshold}})}});
-}}
-function switchTab(n) {{
+}
+async function saveThreshold() {
+    await fetch('/api/save_threshold', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({value: currentThreshold})});
+}
+function switchTab(n) {
     document.querySelectorAll('#tab0,#tab1,#tab2,#tab3').forEach((el,i)=>el.classList.toggle('hidden', i!==n));
     document.getElementById('tabTitle').textContent = ['Dashboard','AI Chat','Models Config','Prompts Config'][n];
-
-    document.querySelectorAll('.tab-btn').forEach((el, i) => {{
-        if (i === n) {{
+    document.querySelectorAll('.tab-btn').forEach((el, i) => {
+        if (i === n) {
             el.classList.add('bg-zinc-800', 'text-white');
             el.classList.remove('text-zinc-400');
-        }} else {{
+        } else {
             el.classList.remove('bg-zinc-800', 'text-white');
             el.classList.add('text-zinc-400');
-        }}
-    }});
-
+        }
+    });
     if (n===2) loadModels().then(() => renderModelTable());
     if (n===3) loadPrompts();
-    if (n===0) {{ renderTable(); refreshStats(); }}
-}}
-window.onload = () => {{
+    if (n===0) { renderTable(); refreshStats(); }
+}
+window.onload = () => {
     refreshStats();
     renderTable();
     loadPrompts();
     switchTab(0);
     highlightActiveCard();
-}}
+}
 </script>
 </body>
 </html>

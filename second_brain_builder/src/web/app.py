@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Thoughts tab with EXACT layout + processing indicator (spinner + "Thinking...") on Save button after click
+# purpose: FIXED Thoughts tab bottom list - real model names (no more {n.name} placeholders) + proper loadThoughts + filterThoughts + correct JS template literal escape for Python f-string
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -138,12 +138,23 @@ async def root():
 
         <!-- Dashboard Tab -->
         <div id="tab0" class="flex-1 p-8 overflow-auto">
-            <div class="grid grid-cols-5 gap-6">
-                <div class="bg-zinc-900 rounded-3xl p-6"><div class="text-sm text-zinc-500">Total Notes</div><div id="totalNotes" class="text-5xl font-semibold mt-2">{stats["total_notes"]}</div></div>
-                <div class="bg-zinc-900 rounded-3xl p-6"><div class="text-sm text-zinc-500">YouTube</div><div id="ytCount" class="text-5xl font-semibold mt-2">{stats["youtube"]}</div></div>
-                <div class="bg-zinc-900 rounded-3xl p-6"><div class="text-sm text-zinc-500">Cloud</div><div id="cloudCount" class="text-5xl font-semibold mt-2">{stats["cloud"]}</div></div>
-                <div class="bg-zinc-900 rounded-3xl p-6"><div class="text-sm text-zinc-500">Local</div><div id="localCount" class="text-5xl font-semibold mt-2">{stats["local"]}</div></div>
-                <div class="bg-zinc-900 rounded-3xl p-6"><div class="text-sm text-zinc-500">AI DBs</div><div id="dbCount" class="text-5xl font-semibold mt-2">{stats["db"]}</div></div>
+            <div class="grid grid-cols-4 gap-6">
+                <div class="bg-zinc-900 rounded-3xl p-6">
+                    <div class="text-sm text-zinc-500">Total Thoughts</div>
+                    <div id="totalNotes" class="text-5xl font-semibold mt-2">{stats["total_notes"]}</div>
+                </div>
+                <div class="bg-zinc-900 rounded-3xl p-6">
+                    <div class="text-sm text-zinc-500">Cloud Platforms</div>
+                    <div id="cloudCount" class="text-5xl font-semibold mt-2">{stats["cloud"]}</div>
+                </div>
+                <div class="bg-zinc-900 rounded-3xl p-6">
+                    <div class="text-sm text-zinc-500">Local Storage</div>
+                    <div id="localCount" class="text-5xl font-semibold mt-2">{stats["local"]}</div>
+                </div>
+                <div class="bg-zinc-900 rounded-3xl p-6">
+                    <div class="text-sm text-zinc-500">AI Databases</div>
+                    <div id="dbCount" class="text-5xl font-semibold mt-2">{stats["db"]}</div>
+                </div>
             </div>
             <div id="notesList" class="mt-10 grid grid-cols-3 gap-4"></div>
         </div>
@@ -157,7 +168,7 @@ async def root():
             </div>
         </div>
 
-        <!-- Thoughts Tab - exact layout + processing indicator -->
+        <!-- Thoughts Tab -->
         <div id="tab2" class="flex-1 p-8 overflow-auto hidden flex flex-col">
             <div class="flex-1 flex flex-col">
                 <div class="text-lg font-semibold mb-2">Drop a new thought</div>
@@ -281,7 +292,29 @@ async function loadNotes() {{
     const container = document.getElementById('notesList');
     container.innerHTML = notes.slice(0,9).map(n => `
         <a href="/vault/${{n.path}}" target="_blank" class="block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700">
-            <div class="font-medium">{{n.name}}</div>
+            <div class="font-medium">${{n.name}}</div>
+        </a>
+    `).join('');
+}}
+async function loadThoughts() {{
+    const res = await fetch('/api/notes');
+    const notes = await res.json();
+    const container = document.getElementById('thoughtsListFull');
+    container.innerHTML = notes.filter(n => n.path.includes('thoughts')).slice(0,6).map(n => `
+        <a href="/vault/${{n.path}}" target="_blank" class="block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700">
+            <div class="font-medium">${{n.name}}</div>
+        </a>
+    `).join('');
+}}
+async function filterThoughts() {{
+    const term = document.getElementById('searchInput').value.toLowerCase();
+    const res = await fetch('/api/notes');
+    const notes = await res.json();
+    const filtered = notes.filter(n => n.path.includes('thoughts') && n.name.toLowerCase().includes(term));
+    const container = document.getElementById('thoughtsListFull');
+    container.innerHTML = filtered.slice(0,6).map(n => `
+        <a href="/vault/${{n.path}}" target="_blank" class="block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700">
+            <div class="font-medium">${{n.name}}</div>
         </a>
     `).join('');
 }}
@@ -339,6 +372,7 @@ async function saveThought() {{
             <p>${{data.reply}}</p>
         `;
         input.value = '';
+        loadThoughts(); // refresh list
     }} else {{
         replySection.innerHTML = `<p class="text-red-600">Error: ${{data.reply}}</p>`;
     }}
@@ -349,8 +383,10 @@ function switchTab(n) {{
     if (n===3) {{
         loadModels().then(() => renderModelTable());
     }}
+    if (n===2) {{
+        loadThoughts();
+    }}
 }}
-function filterNotes() {{}}
 window.onload = () => {{
     loadNotes();
     switchTab(0);

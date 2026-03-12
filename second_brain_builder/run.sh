@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - Thoughts tab now has processing indicator (spinner + "Thinking...")
+# purpose: One-click runner - Thoughts list now shows real note names (fixed {n.name} placeholders)
 
 #!/bin/bash
 set -e
@@ -14,6 +14,7 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== Thoughts tab updated ==="
-echo "Clicking 'Save to 2nd Brain' now shows spinner + 'Thinking...' while Ollama replies"
+echo "=== Thoughts list FIXED ==="
+echo "Bottom grid now shows real thought file names (no more {n.name} placeholders)"
+echo "Search also works"
 "$VENV_DIR/bin/python" main.py "$@"

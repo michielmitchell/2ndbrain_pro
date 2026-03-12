@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - Avg Confidence now displayed inside each category card exactly like screenshot
+# purpose: One-click runner - re import fixed, category totals now correct
 
 #!/bin/bash
 set -e
@@ -14,9 +14,8 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== AVG CONFIDENCE INSIDE CATEGORY CARDS ==="
-echo "Each card now shows:"
-echo "• Big count"
-echo "• Small green Avg Confidence (exactly like screenshot)"
-echo "All inside the dashboard tab block"
+echo "=== RE IMPORT FIXED + TOTALS CORRECT ==="
+echo "• All category cards now show real live counts"
+echo "• Avg Confidence updates instantly"
+echo "• NameError resolved"
 "$VENV_DIR/bin/python" main.py "$@"

@@ -1,6 +1,7 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Category cards now show Avg Confidence (big count + small green avg) inside the tab block exactly like the screenshot
+# purpose: Fixed NameError re not defined - import re moved to top + robust stats with live totals
 
+import re
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -51,31 +52,35 @@ def get_vault_stats():
         "avg_People": 0.0, "avg_Projects": 0.0, "avg_Ideas": 0.0, "avg_Admin": 0.0, "avg_Review": 0.0
     }
     sum_conf = {"People": 0.0, "Projects": 0.0, "Ideas": 0.0, "Admin": 0.0, "Review": 0.0}
+    total_conf = 0.0
     thoughts_dir = VAULT_ROOT / "notes" / "thoughts"
     if thoughts_dir.exists():
         for f in thoughts_dir.glob("*.md"):
-            name = f.name.lower()
+            name_lower = f.name.lower()
             stats["total_notes"] += 1
             conf_match = re.search(r'-([0-9.]+)-\d{8}\.md$', f.name)
             conf = float(conf_match.group(1)) if conf_match else 0.65
-            if name.startswith("people-"):
+            total_conf += conf
+            if name_lower.startswith("people-"):
                 stats["People"] += 1
                 sum_conf["People"] += conf
-            elif name.startswith("projects-"):
+            elif name_lower.startswith("projects-"):
                 stats["Projects"] += 1
                 sum_conf["Projects"] += conf
-            elif name.startswith("ideas-"):
+            elif name_lower.startswith("ideas-"):
                 stats["Ideas"] += 1
                 sum_conf["Ideas"] += conf
-            elif name.startswith("admin-"):
+            elif name_lower.startswith("admin-"):
                 stats["Admin"] += 1
                 sum_conf["Admin"] += conf
-            elif name.startswith("review-"):
+            elif name_lower.startswith("review-"):
                 stats["Review"] += 1
                 sum_conf["Review"] += conf
     for cat in ["People", "Projects", "Ideas", "Admin", "Review"]:
-        if stats[cat] > 0:
-            stats[f"avg_{cat}"] = round(sum_conf[cat] / stats[cat], 2)
+        count = stats[cat]
+        if count > 0:
+            stats[f"avg_{cat}"] = round(sum_conf[cat] / count, 2)
+    stats["avg_all"] = round(total_conf / stats["total_notes"], 2) if stats["total_notes"] > 0 else 0.65
     return stats
 
 @app.get("/api/models")
@@ -283,7 +288,7 @@ async def root():
             </div>
         </div>
 
-        <!-- Other tabs unchanged -->
+        <!-- AI Chat Tab -->
         <div id="tab1" class="flex-1 hidden flex-col">
             <div class="flex-1 p-8 overflow-auto" id="chatWindow"></div>
             <div class="p-4 border-t border-zinc-800 bg-zinc-900 flex gap-3">
@@ -291,6 +296,8 @@ async def root():
                 <button onclick="sendChat()" class="bg-violet-600 px-8 rounded-3xl font-semibold">Send</button>
             </div>
         </div>
+
+        <!-- Models Config Tab -->
         <div id="tab2" class="flex-1 p-8 overflow-auto hidden">
             <div id="ollamaStatus" class="mb-6 p-4 bg-zinc-800 rounded-3xl flex items-center gap-3 text-sm"></div>
             <div class="bg-zinc-900 rounded-3xl p-6">
@@ -306,6 +313,8 @@ async def root():
                 <div class="mt-6 text-xs text-zinc-400">Auto-sorted Primary → FB1 → FB2 → FB3</div>
             </div>
         </div>
+
+        <!-- Prompts Config Tab -->
         <div id="tab3" class="flex-1 p-6 overflow-hidden">
             <div class="space-y-6 h-full flex flex-col">
                 <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
@@ -388,8 +397,7 @@ async function refreshStats() {{
     document.getElementById('adminCount').textContent = stats.Admin;
     document.getElementById('reviewCount').textContent = stats.Review;
 
-    // Avg Confidence next to each count (green)
-    document.getElementById('avg-all').textContent = (stats.total_notes > 0 ? (stats.avg_People + stats.avg_Projects + stats.avg_Ideas + stats.avg_Admin + stats.avg_Review) / 5 : 0.65).toFixed(2);
+    document.getElementById('avg-all').textContent = stats.avg_all.toFixed(2);
     document.getElementById('avg-People').textContent = stats.avg_People.toFixed(2);
     document.getElementById('avg-Projects').textContent = stats.avg_Projects.toFixed(2);
     document.getElementById('avg-Ideas').textContent = stats.avg_Ideas.toFixed(2);

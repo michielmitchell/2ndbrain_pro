@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Select-All checkbox now properly reflects state — checked only when ALL visible rows are selected, instantly unchecks when any row is deselected
+# purpose: Table columns now fully sortable (Thought, Category, Confidence numeric, Date & Time) with ↑/↓ arrows and instant re-render
 
 import re
 import json
@@ -413,10 +413,10 @@ async def root():
                     <thead>
                         <tr class="bg-zinc-800 text-zinc-400 text-sm">
                             <th class="p-4 w-10"><input type="checkbox" id="selectAllHeader" class="accent-violet-500 w-5 h-5" onclick="toggleSelectAll()"></th>
-                            <th onclick="sortTable(0)" class="p-4 text-left cursor-pointer hover:text-white">Thought <span id="sort0">↕</span></th>
-                            <th onclick="sortTable(1)" class="p-4 text-left cursor-pointer hover:text-white">Category <span id="sort1">↕</span></th>
-                            <th onclick="sortTable(2)" class="p-4 text-left cursor-pointer hover:text-white">Confidence <span id="sort2">↕</span></th>
-                            <th onclick="sortTable(3)" class="p-4 text-left cursor-pointer hover:text-white">Date & Time <span id="sort3">↕</span></th>
+                            <th onclick="sortTable(0)" class="p-4 text-left cursor-pointer hover:text-white">Thought <span id="sort0" class="sort-indicator">↕</span></th>
+                            <th onclick="sortTable(1)" class="p-4 text-left cursor-pointer hover:text-white">Category <span id="sort1" class="sort-indicator">↕</span></th>
+                            <th onclick="sortTable(2)" class="p-4 text-left cursor-pointer hover:text-white">Confidence <span id="sort2" class="sort-indicator">↕</span></th>
+                            <th onclick="sortTable(3)" class="p-4 text-left cursor-pointer hover:text-white">Date & Time <span id="sort3" class="sort-indicator">↕</span></th>
                             <th class="p-4 w-12"></th>
                         </tr>
                     </thead>
@@ -599,15 +599,12 @@ function setCategoryFilter(cat) {
     highlightActiveCard();
 }
 
-function updateSelectAllHeader() {
-    const header = document.getElementById('selectAllHeader');
-    const allCheckboxes = document.querySelectorAll('.row-checkbox');
-    if (allCheckboxes.length === 0) {
-        header.checked = false;
-        return;
+function updateSortIndicators() {
+    document.querySelectorAll('.sort-indicator').forEach(el => el.textContent = '↕');
+    const currentIndicator = document.getElementById(`sort${sortColumn}`);
+    if (currentIndicator) {
+        currentIndicator.textContent = sortAsc ? '↑' : '↓';
     }
-    const checkedCount = Array.from(allCheckboxes).filter(chk => chk.checked).length;
-    header.checked = checkedCount === allCheckboxes.length;
 }
 
 async function renderTable() {
@@ -621,13 +618,31 @@ async function renderTable() {
         notes = notes.filter(n => n.category.toLowerCase() === currentCategoryFilter.toLowerCase());
     }
     notes.sort((a, b) => {
-        let va = a.thought, vb = b.thought;
-        if (sortColumn === 3) {
-            va = a.datetime || '0';
-            vb = b.datetime || '0';
+        let va, vb;
+        let multiplier = sortAsc ? 1 : -1;
+        switch (sortColumn) {
+            case 0: // Thought
+                va = a.thought.toLowerCase();
+                vb = b.thought.toLowerCase();
+                break;
+            case 1: // Category
+                va = a.category.toLowerCase();
+                vb = b.category.toLowerCase();
+                break;
+            case 2: // Confidence
+                va = parseFloat(a.confidence) || 0;
+                vb = parseFloat(b.confidence) || 0;
+                break;
+            case 3: // Date & Time
+                va = a.datetime || '';
+                vb = b.datetime || '';
+                break;
+            default:
+                va = a.thought.toLowerCase();
+                vb = b.thought.toLowerCase();
         }
-        if (va < vb) return sortAsc ? -1 : 1;
-        if (va > vb) return sortAsc ? 1 : -1;
+        if (va < vb) return multiplier * -1;
+        if (va > vb) return multiplier * 1;
         return 0;
     });
     let html = '';
@@ -648,6 +663,7 @@ async function renderTable() {
     document.getElementById('filteredCount').textContent = `${notes.length} thoughts`;
     updateBulkUI();
     updateSelectAllHeader();
+    updateSortIndicators();
 }
 
 function toggleRow(checkbox) {
@@ -667,6 +683,17 @@ function toggleSelectAll() {
         else selectedPaths.delete(path);
     });
     updateBulkUI();
+}
+
+function updateSelectAllHeader() {
+    const header = document.getElementById('selectAllHeader');
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    if (allCheckboxes.length === 0) {
+        header.checked = false;
+        return;
+    }
+    const checkedCount = Array.from(allCheckboxes).filter(chk => chk.checked).length;
+    header.checked = checkedCount === allCheckboxes.length;
 }
 
 function updateBulkUI() {
@@ -781,8 +808,12 @@ async function deleteNote(path) {
 }
 
 function sortTable(col) {
-    if (sortColumn === col) sortAsc = !sortAsc;
-    else { sortColumn = col; sortAsc = true; }
+    if (sortColumn === col) {
+        sortAsc = !sortAsc;
+    } else {
+        sortColumn = col;
+        sortAsc = true;
+    }
     renderTable();
 }
 

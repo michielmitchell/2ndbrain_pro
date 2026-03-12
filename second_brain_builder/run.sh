@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner — now reminds that .gitignore is active and protects data
+# purpose: One-click runner — all table columns now fully sortable with ↑↓ arrows
 
 #!/bin/bash
 set -e
@@ -14,7 +14,7 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== .gitignore ACTIVE ==="
-echo "• All notes, logs, .venv, and databases are now protected from git"
-echo "• Only code + config is tracked"
+echo "=== ALL TABLE COLUMNS NOW FULLY SORTABLE ==="
+echo "• Click any header (Thought, Category, Confidence, Date & Time)"
+echo "• Numeric sort on Confidence, arrow indicators updated"
 "$VENV_DIR/bin/python" main.py "$@"

@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - guaranteed real model names now (qwen3.5:27b etc.)
+# purpose: One-click runner - Thoughts tab now has processing indicator (spinner + "Thinking...")
 
 #!/bin/bash
 set -e
@@ -14,7 +14,6 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== MODEL NAMES FIXED ==="
-echo "Table will now show real names: qwen3.5:27b, deepseek-r1:8B etc."
-echo "Refresh the Models Config tab if needed."
+echo "=== Thoughts tab updated ==="
+echo "Clicking 'Save to 2nd Brain' now shows spinner + 'Thinking...' while Ollama replies"
 "$VENV_DIR/bin/python" main.py "$@"

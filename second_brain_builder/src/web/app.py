@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Models Config tab - now shows your real model names + auto-sort Primary>>FB1>>FB2>>FB3 after every change
+# purpose: Thoughts tab with EXACT layout + processing indicator (spinner + "Thinking...") on Save button after click
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -13,6 +13,7 @@ from src.modules.document_processor import process_report
 from src.modules.obsidian_exporter import create_obsidian_structure
 from src.modules.ai_processor import OllamaClient
 from src.modules.model_manager import model_manager
+from src.modules.thought_processor import save_thought_and_reply
 
 app = FastAPI(title="Second Brain Builder")
 app.mount("/vault", StaticFiles(directory=str(VAULT_ROOT), html=True), name="vault")
@@ -91,6 +92,11 @@ async def chat(request: dict = Body(...)):
     reply = ollama_client.chat_with_vault(msg, model)
     return {"reply": reply}
 
+@app.post("/api/save_thought")
+async def api_save_thought(request: dict = Body(...)):
+    thought = request.get("thought", "")
+    return save_thought_and_reply(thought)
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     stats = get_vault_stats()
@@ -114,7 +120,7 @@ async def root():
         <nav class="flex-1 space-y-1">
             <a onclick="switchTab(0)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl bg-zinc-800 text-white">📊 Dashboard</a>
             <a onclick="switchTab(1)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">💬 AI Chat</a>
-            <a onclick="switchTab(2)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">📝 Notes</a>
+            <a onclick="switchTab(2)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">🧠 Thoughts</a>
             <a onclick="switchTab(3)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">⚙️ Models Config</a>
         </nav>
         <div class="pt-6">
@@ -151,13 +157,24 @@ async def root():
             </div>
         </div>
 
-        <!-- Notes Tab -->
-        <div id="tab2" class="flex-1 p-8 overflow-auto hidden">
-            <input id="searchInput" type="text" placeholder="Search notes..." class="bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 w-full mb-6" onkeyup="filterNotes()">
-            <div id="notesListFull" class="grid grid-cols-2 gap-4"></div>
+        <!-- Thoughts Tab - exact layout + processing indicator -->
+        <div id="tab2" class="flex-1 p-8 overflow-auto hidden flex flex-col">
+            <div class="flex-1 flex flex-col">
+                <div class="text-lg font-semibold mb-2">Drop a new thought</div>
+                <textarea id="thoughtInput" class="w-full h-32 bg-white text-gray-500 rounded-lg p-4 focus:outline-none focus:border-blue-500 resize-none" placeholder="Type or paste your thought here..."></textarea>
+                <button id="saveButton" onclick="saveThought()" class="mt-4 w-40 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg flex items-center justify-center gap-2">
+                    <span class="text-sm">💾 Save to 2nd Brain</span>
+                </button>
+                <div id="replySection" class="mt-6 p-4 bg-blue-100/50 rounded-lg text-blue-800">
+                    <div class="text-sm font-semibold mb-1">🤖 2nd Brain Reply:</div>
+                    <p>Waiting for your next thought... Drop one and I'll reply instantly! ★</p>
+                </div>
+            </div>
+            <input id="searchInput" type="text" placeholder="Search thoughts..." class="mt-auto bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 w-full" onkeyup="filterThoughts()">
+            <div id="thoughtsListFull" class="mt-4 grid grid-cols-2 gap-4"></div>
         </div>
 
-        <!-- Models Configuration Tab -->
+        <!-- Models Config Tab -->
         <div id="tab3" class="flex-1 p-8 overflow-auto hidden">
             <div id="ollamaStatus" class="mb-6 p-4 bg-zinc-800 rounded-3xl flex items-center gap-3 text-sm"></div>
             <div class="bg-zinc-900 rounded-3xl p-6">
@@ -170,7 +187,7 @@ async def root():
                     <div class="text-6xl mb-4">🤖</div>
                     <p class="text-xl font-medium mb-2">No models found</p>
                 </div>
-                <div class="mt-6 text-xs text-zinc-400">Auto-sorted Primary → FB1 → FB2 → FB3 • Real names from Ollama</div>
+                <div class="mt-6 text-xs text-zinc-400">Auto-sorted Primary → FB1 → FB2 → FB3</div>
             </div>
         </div>
     </div>
@@ -212,7 +229,6 @@ async function renderModelTable() {{
     document.getElementById('modelTable').classList.remove('hidden');
     document.getElementById('emptyState').classList.add('hidden');
 
-    // AUTO-SORT: Primary first, then fallbacks, then rest
     const priority = [assignment.primary, assignment.fallback1, assignment.fallback2, assignment.fallback3];
     modelsData.sort((a, b) => {{
         const pa = priority.indexOf(a.name);
@@ -252,13 +268,6 @@ async function updateAssignment(el) {{
         const checked = document.querySelector(`input[name="${{role}}"]:checked`);
         assignment[role] = checked ? checked.value : '';
     }});
-    // Prevent duplicates
-    const selected = el.value;
-    if (el.name === 'primary') {{
-        ['fallback1','fallback2','fallback3'].forEach(r => {{
-            if (assignment[r] === selected) assignment[r] = '';
-        }});
-    }}
     await fetch('/api/model_config', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify(assignment)}});
     await renderModelTable();
 }}
@@ -307,9 +316,36 @@ function renderChat() {{
     `).join('');
     win.scrollTop = win.scrollHeight;
 }}
+async function saveThought() {{
+    const input = document.getElementById('thoughtInput');
+    const thought = input.value.trim();
+    if (!thought) return;
+
+    const btn = document.getElementById('saveButton');
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>Thinking...`;
+
+    const res = await fetch('/api/save_thought', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{thought}})}});
+    const data = await res.json();
+
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+
+    const replySection = document.getElementById('replySection');
+    if (data.success) {{
+        replySection.innerHTML = `
+            <div class="text-sm font-semibold mb-1">🤖 2nd Brain Reply:</div>
+            <p>${{data.reply}}</p>
+        `;
+        input.value = '';
+    }} else {{
+        replySection.innerHTML = `<p class="text-red-600">Error: ${{data.reply}}</p>`;
+    }}
+}}
 function switchTab(n) {{
     document.querySelectorAll('#tab0,#tab1,#tab2,#tab3').forEach((el,i)=>el.classList.toggle('hidden', i!==n));
-    document.getElementById('tabTitle').textContent = ['Dashboard','AI Chat','Notes','Models Config'][n];
+    document.getElementById('tabTitle').textContent = ['Dashboard','AI Chat','Thoughts','Models Config'][n];
     if (n===3) {{
         loadModels().then(() => renderModelTable());
     }}

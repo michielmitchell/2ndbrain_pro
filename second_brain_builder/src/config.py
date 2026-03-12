@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/config.py
-# purpose: Central config - OLLAMA_HOST now defaults to YOUR actual server IP (192.168.3.237) so models populate immediately
+# purpose: Added THOUGHTS_DIR for new Thoughts tab layout
 
 from pathlib import Path
 import os
@@ -11,14 +11,14 @@ LOG_DIR = PROJECT_ROOT / "logs"
 
 DEFAULT_PORT = 8000
 
-# YOUR OLLAMA SERVER (from your screenshot) - now default so table always loads your models
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://192.168.3.237:11434")
 DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
-# SQLite persistence for model assignment
 DB_PATH = PROJECT_ROOT / "data" / "model_config.db"
 
-# All required subfolders (created via folder_setup)
+# New for Thoughts tab
+THOUGHTS_DIR = VAULT_ROOT / "notes" / "thoughts"
+
 YOUTUBE_NOTES_DIR = VAULT_ROOT / "youtube_notes"
 RAW_DOCS_DIR = VAULT_ROOT / "raw_documents"
 CLOUD_DIR = VAULT_ROOT / "notes" / "cloud_platforms"
@@ -30,7 +30,6 @@ ATTACHMENTS_DIR = VAULT_ROOT / "attachments"
 INPUT_LINKS_FILE = "pasted-text.txt"
 INPUT_REPORT_FILE = "Second Brain tools comparison 2026.txt"
 
-# YT URLs hardcoded as fallback if file missing
 DEFAULT_YT_LINKS = [
     "https://www.youtube.com/watch?v=0TpON5T-Sw4",
     "https://www.youtube.com/watch?v=_gPODg6br5w"

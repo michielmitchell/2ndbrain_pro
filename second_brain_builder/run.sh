@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner — Prompts Config flash fixed (tab3 now starts hidden)
+# purpose: One-click runner — AI Review JSON extraction now robust (ignores extra explanation text)
 
 #!/bin/bash
 set -e
@@ -14,7 +14,7 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== PROMPTS CONFIG FLASH FIXED ==="
-echo "• #tab3 now starts with hidden class"
-echo "• No more prompts section appearing at bottom of Dashboard on fresh load"
+echo "=== AI REVIEW JSON EXTRACTION FIXED ==="
+echo "• Now extracts clean JSON even when Ollama adds explanation text"
+echo "• Category + Confidence update instantly after every review"
 "$VENV_DIR/bin/python" main.py "$@"

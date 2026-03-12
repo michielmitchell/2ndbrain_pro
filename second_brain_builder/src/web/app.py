@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Prompts Config tab (#tab3) now starts with 'hidden' class (fixes flash-of-content bug on fresh load). No more prompts section appearing at bottom of Dashboard.
+# purpose: AI Review now reliably extracts JSON even when Ollama adds explanation text after it. Category + confidence now update correctly on every review.
 
 import re
 import json
@@ -166,6 +166,19 @@ async def api_save_threshold(request: dict = Body(...)):
     prompt_manager.save_threshold(value)
     return {"status": "saved"}
 
+@app.post("/api/enhance")
+async def enhance_all():
+    thoughts_dir = VAULT_ROOT / "notes" / "thoughts"
+    enhanced = 0
+    if thoughts_dir.exists():
+        for p in thoughts_dir.glob("*.md"):
+            try:
+                await enhance_note({"path": str(p.relative_to(VAULT_ROOT))})
+                enhanced += 1
+            except:
+                pass
+    return {"status": "success", "enhanced": enhanced}
+
 @app.post("/api/enhance_note")
 async def enhance_note(request: dict = Body(...)):
     path = request.get("path")
@@ -178,14 +191,22 @@ async def enhance_note(request: dict = Body(...)):
     review_prompt = base_prompt.replace("{thought}", content) + f"""
 
 Review Threshold: {threshold:.2f}
-If your confidence would be below this threshold, you MUST use category "Review". Be strict."""
+If your confidence would be below this threshold, you MUST use category "Review". Be strict.
+
+Return ONLY valid JSON. NO explanations, NO extra text after the closing brace."""
     assignment = model_manager.get_assignment()
     primary_model = assignment.get("primary", "qwen2.5:14b")
     print(f"[AI REVIEW PROMPT SENT TO {primary_model}]\n{review_prompt}\n")
-    summary = ollama_client.chat_with_vault(review_prompt, primary_model)
-    print(f"[AI REVIEW RAW RESPONSE]\n{summary}\n")
+    raw = ollama_client.chat_with_vault(review_prompt, primary_model)
+    print(f"[AI REVIEW RAW RESPONSE]\n{raw}\n")
+    # Robust JSON extraction - take only the first complete JSON object
+    json_match = re.search(r'(\{.*?\})', raw, re.DOTALL)
+    if not json_match:
+        print("[AI REVIEW JSON EXTRACTION FAILED] No JSON block found")
+        return {"status": "failed"}
+    json_str = json_match.group(1)
     try:
-        data = json.loads(summary.strip())
+        data = json.loads(json_str)
         new_category = data.get("category", "Review")
         new_confidence = float(data.get("confidence", 0.0))
         stem = p.stem
@@ -205,9 +226,9 @@ If your confidence would be below this threshold, you MUST use category "Review"
             print(f"[RENAME SUCCESS] {p.name} → {new_name}")
             p = new_p
         with open(p, "a", encoding="utf-8") as fp:
-            fp.write(f"\n\n## AI Review Summary (Ollama)\n{summary}\n")
+            fp.write(f"\n\n## AI Review Summary (Ollama)\n{raw}\n")
         print(f"[AI REVIEW SUCCESS] Added summary to {new_name}")
-        return {"status": "enhanced", "new_path": str(new_p.relative_to(VAULT_ROOT)), "summary": summary[:300]}
+        return {"status": "enhanced", "new_path": str(new_p.relative_to(VAULT_ROOT)), "summary": raw[:300]}
     except Exception as e:
         print(f"[AI REVIEW JSON PARSE FAILED] {e}")
         return {"status": "failed"}
@@ -290,7 +311,9 @@ async def root():
             <a id="tab-link-3" onclick="switchTab(3)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">📝 Prompts Config</a>
         </nav>
         <div class="pt-6">
-            <button onclick="enhanceWithAI()" class="w-full border border-violet-500 text-violet-400 hover:bg-violet-950 py-3 rounded-3xl">✨ Enhance with Ollama</button>
+            <button onclick="enhanceWithAI()" id="enhanceBtn" class="w-full border border-violet-500 text-violet-400 hover:bg-violet-950 py-3 rounded-3xl flex items-center justify-center gap-2">
+                ✨ Enhance with Ollama
+            </button>
         </div>
     </div>
 
@@ -858,10 +881,19 @@ document.getElementById('noteModal').addEventListener('click', (e) => {
     if (e.target.id === 'noteModal') closeModal();
 });
 async function enhanceWithAI() {
-    await fetch('/api/enhance', {method:'POST'});
-    alert('All notes enhanced with Ollama summaries!');
-    renderTable();
-    refreshStats();
+    const btn = document.getElementById('enhanceBtn');
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full mr-2"></span> Enhancing...`;
+    const res = await fetch('/api/enhance', {method: 'POST'});
+    const data = await res.json();
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+    if (data.status === "success") {
+        alert(`✅ Enhanced ${data.enhanced} thoughts with Ollama!`);
+        renderTable();
+        refreshStats();
+    }
 }
 async function sendChat() {
     const input = document.getElementById('chatInput');

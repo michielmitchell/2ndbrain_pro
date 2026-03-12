@@ -1,12 +1,12 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: FastAPI with Tailwind GUI + NEW Models Configuration tab (exact table from screenshot) - dynamic Ollama load, radio assignment, SQLite auto-save, auto-sort Primary>>FB1>>FB2>>FB3
+# purpose: FastAPI with Tailwind GUI + Models Config tab - FIXED NameError by importing DEFAULT_OLLAMA_MODEL + uses Primary model from SQLite for chat
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import os
-from src.config import VAULT_ROOT, DEFAULT_PORT
+from src.config import VAULT_ROOT, DEFAULT_PORT, DEFAULT_OLLAMA_MODEL
 from src.utils.folder_setup import setup_all_folders
 from src.modules.video_processor import process_youtube_links
 from src.modules.document_processor import process_report
@@ -81,7 +81,8 @@ async def enhance_all():
 @app.post("/api/chat")
 async def chat(request: dict = Body(...)):
     msg = request.get("message", "")
-    model = request.get("model") or model_manager.get_assignment().get("primary")
+    assignment = model_manager.get_assignment()
+    model = request.get("model") or assignment.get("primary") or DEFAULT_OLLAMA_MODEL
     reply = ollama_client.chat_with_vault(msg, model)
     return {"reply": reply}
 
@@ -151,7 +152,7 @@ async def root():
             <div id="notesListFull" class="grid grid-cols-2 gap-4"></div>
         </div>
 
-        <!-- Models Configuration Tab (exact table from your screenshot) -->
+        <!-- Models Configuration Tab -->
         <div id="tab3" class="flex-1 p-8 overflow-auto hidden">
             <div class="bg-zinc-900 rounded-3xl p-6">
                 <h3 class="font-semibold text-lg mb-6">Chat Models Assignment</h3>
@@ -211,7 +212,7 @@ async function updateAssignment(el) {{
         assignment[role] = checked ? checked.value : '';
     }});
     await saveModelConfig(assignment);
-    renderModelTable(); // auto-sort refresh
+    renderModelTable();
 }}
 async function loadNotes() {{
     const res = await fetch('/api/notes');

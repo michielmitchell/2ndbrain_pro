@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Dashboard now shows the EXACT AI categories (People, Projects, Ideas, Admin, Review) with live counts
+# purpose: Category cards now show Avg Confidence (big count + small green avg) inside the tab block exactly like the screenshot
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -46,17 +46,36 @@ async def api_stats():
 ollama_client = OllamaClient()
 
 def get_vault_stats():
-    stats = {"total_notes": 0, "People": 0, "Projects": 0, "Ideas": 0, "Admin": 0, "Review": 0}
+    stats = {
+        "total_notes": 0, "People": 0, "Projects": 0, "Ideas": 0, "Admin": 0, "Review": 0,
+        "avg_People": 0.0, "avg_Projects": 0.0, "avg_Ideas": 0.0, "avg_Admin": 0.0, "avg_Review": 0.0
+    }
+    sum_conf = {"People": 0.0, "Projects": 0.0, "Ideas": 0.0, "Admin": 0.0, "Review": 0.0}
     thoughts_dir = VAULT_ROOT / "notes" / "thoughts"
     if thoughts_dir.exists():
         for f in thoughts_dir.glob("*.md"):
             name = f.name.lower()
             stats["total_notes"] += 1
-            if name.startswith("people-"): stats["People"] += 1
-            elif name.startswith("projects-"): stats["Projects"] += 1
-            elif name.startswith("ideas-"): stats["Ideas"] += 1
-            elif name.startswith("admin-"): stats["Admin"] += 1
-            elif name.startswith("review-"): stats["Review"] += 1
+            conf_match = re.search(r'-([0-9.]+)-\d{8}\.md$', f.name)
+            conf = float(conf_match.group(1)) if conf_match else 0.65
+            if name.startswith("people-"):
+                stats["People"] += 1
+                sum_conf["People"] += conf
+            elif name.startswith("projects-"):
+                stats["Projects"] += 1
+                sum_conf["Projects"] += conf
+            elif name.startswith("ideas-"):
+                stats["Ideas"] += 1
+                sum_conf["Ideas"] += conf
+            elif name.startswith("admin-"):
+                stats["Admin"] += 1
+                sum_conf["Admin"] += conf
+            elif name.startswith("review-"):
+                stats["Review"] += 1
+                sum_conf["Review"] += conf
+    for cat in ["People", "Projects", "Ideas", "Admin", "Review"]:
+        if stats[cat] > 0:
+            stats[f"avg_{cat}"] = round(sum_conf[cat] / stats[cat], 2)
     return stats
 
 @app.get("/api/models")
@@ -182,7 +201,7 @@ async def root():
             <span id="status" class="px-4 py-1 text-xs bg-emerald-500/10 text-emerald-400 rounded-full">Ollama Ready</span>
         </div>
 
-        <!-- AI Category Dashboard -->
+        <!-- Dashboard -->
         <div id="tab0" class="flex-1 p-8 overflow-auto">
             <!-- Drop a thought -->
             <div class="bg-zinc-900 rounded-3xl p-6 mb-8">
@@ -197,38 +216,74 @@ async def root():
                 </div>
             </div>
 
-            <!-- Live Category Counts -->
-            <div class="grid grid-cols-6 gap-6">
-                <div class="bg-zinc-900 rounded-3xl p-6">
+            <!-- Category Cards with Avg Confidence -->
+            <div class="grid grid-cols-6 gap-6 mb-8" id="categoryCards">
+                <div onclick="setCategoryFilter('all')" id="card-all" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer border-2 border-violet-500">
                     <div class="text-sm text-zinc-500">Total Thoughts</div>
-                    <div id="totalNotes" class="text-5xl font-semibold mt-2">0</div>
+                    <div class="flex justify-between items-baseline">
+                        <div id="totalNotes" class="text-5xl font-semibold">0</div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-all">0.65</span></div>
+                    </div>
                 </div>
-                <div class="bg-zinc-900 rounded-3xl p-6">
+                <div onclick="setCategoryFilter('People')" id="card-People" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer">
                     <div class="text-sm text-zinc-500">People</div>
-                    <div id="peopleCount" class="text-5xl font-semibold mt-2">0</div>
+                    <div class="flex justify-between items-baseline">
+                        <div id="peopleCount" class="text-5xl font-semibold">0</div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-People">0.65</span></div>
+                    </div>
                 </div>
-                <div class="bg-zinc-900 rounded-3xl p-6">
+                <div onclick="setCategoryFilter('Projects')" id="card-Projects" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer">
                     <div class="text-sm text-zinc-500">Projects</div>
-                    <div id="projectsCount" class="text-5xl font-semibold mt-2">0</div>
+                    <div class="flex justify-between items-baseline">
+                        <div id="projectsCount" class="text-5xl font-semibold">0</div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Projects">0.65</span></div>
+                    </div>
                 </div>
-                <div class="bg-zinc-900 rounded-3xl p-6">
+                <div onclick="setCategoryFilter('Ideas')" id="card-Ideas" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer">
                     <div class="text-sm text-zinc-500">Ideas</div>
-                    <div id="ideasCount" class="text-5xl font-semibold mt-2">0</div>
+                    <div class="flex justify-between items-baseline">
+                        <div id="ideasCount" class="text-5xl font-semibold">0</div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Ideas">0.65</span></div>
+                    </div>
                 </div>
-                <div class="bg-zinc-900 rounded-3xl p-6">
+                <div onclick="setCategoryFilter('Admin')" id="card-Admin" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer">
                     <div class="text-sm text-zinc-500">Admin</div>
-                    <div id="adminCount" class="text-5xl font-semibold mt-2">0</div>
+                    <div class="flex justify-between items-baseline">
+                        <div id="adminCount" class="text-5xl font-semibold">0</div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Admin">0.65</span></div>
+                    </div>
                 </div>
-                <div class="bg-zinc-900 rounded-3xl p-6">
+                <div onclick="setCategoryFilter('Review')" id="card-Review" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer">
                     <div class="text-sm text-zinc-500">Review</div>
-                    <div id="reviewCount" class="text-5xl font-semibold mt-2">0</div>
+                    <div class="flex justify-between items-baseline">
+                        <div id="reviewCount" class="text-5xl font-semibold">0</div>
+                        <div class="text-emerald-400 text-sm font-mono">Avg <span id="avg-Review">0.65</span></div>
+                    </div>
                 </div>
             </div>
 
-            <div id="notesList" class="mt-10 grid grid-cols-3 gap-4"></div>
+            <!-- Sortable Table -->
+            <div class="bg-zinc-900 rounded-3xl overflow-hidden">
+                <div class="px-8 py-5 border-b border-zinc-700 flex justify-between items-center">
+                    <h3 id="tableTitle" class="text-lg font-semibold">All Thoughts</h3>
+                    <span id="filteredCount" class="text-zinc-400 text-sm">0 thoughts</span>
+                </div>
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-zinc-800 text-zinc-400 text-sm">
+                            <th onclick="sortTable(0)" class="p-4 text-left cursor-pointer hover:text-white">Filename <span id="sort0">↕</span></th>
+                            <th onclick="sortTable(1)" class="p-4 text-left cursor-pointer hover:text-white">Category <span id="sort1">↕</span></th>
+                            <th onclick="sortTable(2)" class="p-4 text-left cursor-pointer hover:text-white">Confidence <span id="sort2">↕</span></th>
+                            <th onclick="sortTable(3)" class="p-4 text-left cursor-pointer hover:text-white">Date <span id="sort3">↕</span></th>
+                            <th class="p-4 w-12"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="thoughtsTableBody" class="text-sm"></tbody>
+                </table>
+            </div>
         </div>
 
-        <!-- AI Chat Tab -->
+        <!-- Other tabs unchanged -->
         <div id="tab1" class="flex-1 hidden flex-col">
             <div class="flex-1 p-8 overflow-auto" id="chatWindow"></div>
             <div class="p-4 border-t border-zinc-800 bg-zinc-900 flex gap-3">
@@ -236,8 +291,6 @@ async def root():
                 <button onclick="sendChat()" class="bg-violet-600 px-8 rounded-3xl font-semibold">Send</button>
             </div>
         </div>
-
-        <!-- Models Config Tab -->
         <div id="tab2" class="flex-1 p-8 overflow-auto hidden">
             <div id="ollamaStatus" class="mb-6 p-4 bg-zinc-800 rounded-3xl flex items-center gap-3 text-sm"></div>
             <div class="bg-zinc-900 rounded-3xl p-6">
@@ -253,8 +306,6 @@ async def root():
                 <div class="mt-6 text-xs text-zinc-400">Auto-sorted Primary → FB1 → FB2 → FB3</div>
             </div>
         </div>
-
-        <!-- Prompts Config Tab -->
         <div id="tab3" class="flex-1 p-6 overflow-hidden">
             <div class="space-y-6 h-full flex flex-col">
                 <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
@@ -323,6 +374,9 @@ let messages = [];
 let modelsData = [];
 let currentThreshold = 0.65;
 let currentNotePath = '';
+let currentCategoryFilter = 'all';
+let sortColumn = 0;
+let sortAsc = true;
 
 async function refreshStats() {{
     const res = await fetch('/api/stats');
@@ -333,6 +387,85 @@ async function refreshStats() {{
     document.getElementById('ideasCount').textContent = stats.Ideas;
     document.getElementById('adminCount').textContent = stats.Admin;
     document.getElementById('reviewCount').textContent = stats.Review;
+
+    // Avg Confidence next to each count (green)
+    document.getElementById('avg-all').textContent = (stats.total_notes > 0 ? (stats.avg_People + stats.avg_Projects + stats.avg_Ideas + stats.avg_Admin + stats.avg_Review) / 5 : 0.65).toFixed(2);
+    document.getElementById('avg-People').textContent = stats.avg_People.toFixed(2);
+    document.getElementById('avg-Projects').textContent = stats.avg_Projects.toFixed(2);
+    document.getElementById('avg-Ideas').textContent = stats.avg_Ideas.toFixed(2);
+    document.getElementById('avg-Admin').textContent = stats.avg_Admin.toFixed(2);
+    document.getElementById('avg-Review').textContent = stats.avg_Review.toFixed(2);
+}}
+
+function highlightActiveCard() {{
+    document.querySelectorAll('.category-card').forEach(c => c.classList.remove('border-violet-500'));
+    if (currentCategoryFilter === 'all') {{
+        document.getElementById('card-all').classList.add('border-violet-500');
+    }} else {{
+        document.getElementById(`card-${{currentCategoryFilter}}`).classList.add('border-violet-500');
+    }}
+}}
+
+function setCategoryFilter(cat) {{
+    currentCategoryFilter = cat;
+    document.getElementById('tableTitle').textContent = cat === 'all' ? 'All Thoughts' : `${{cat}} Thoughts`;
+    renderTable();
+    highlightActiveCard();
+}}
+
+async function renderTable() {{
+    const res = await fetch('/api/notes');
+    let notes = await res.json();
+
+    if (currentCategoryFilter !== 'all') {{
+        notes = notes.filter(n => n.name.toLowerCase().startsWith(currentCategoryFilter.toLowerCase() + '-'));
+    }}
+
+    notes.sort((a, b) => {{
+        let va = a.name, vb = b.name;
+        if (sortColumn === 3) {{
+            va = va.match(/\\d{{8}}$/) ? va.match(/\\d{{8}}$/)[0] : '0';
+            vb = vb.match(/\\d{{8}}$/) ? vb.match(/\\d{{8}}$/)[0] : '0';
+        }}
+        if (va < vb) return sortAsc ? -1 : 1;
+        if (va > vb) return sortAsc ? 1 : -1;
+        return 0;
+    }});
+
+    let html = '';
+    notes.forEach(n => {{
+        const catMatch = n.name.match(/^([a-z]+)-/i);
+        const cat = catMatch ? catMatch[1].charAt(0).toUpperCase() + catMatch[1].slice(1) : 'Review';
+        const confMatch = n.name.match(/-([0-9.]+)-\\d{{8}}\\.md$/);
+        const conf = confMatch ? confMatch[1] : '0.65';
+        const dateMatch = n.name.match(/(\\d{{8}})\\\.md$/);
+        const date = dateMatch ? dateMatch[1] : '';
+        html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800 cursor-pointer" onclick="showNoteModal('${{n.path}}')">
+            <td class="p-4 font-medium">${{n.name}}</td>
+            <td class="p-4">${{cat}}</td>
+            <td class="p-4 text-emerald-400 font-mono">${{conf}}</td>
+            <td class="p-4 text-zinc-400">${{date}}</td>
+            <td class="p-4">
+                <button onclick="event.stopImmediatePropagation(); deleteNote('${{n.path}}');" class="text-red-400 hover:text-red-500">🗑️</button>
+            </td>
+        </tr>`;
+    }});
+
+    document.getElementById('thoughtsTableBody').innerHTML = html;
+    document.getElementById('filteredCount').textContent = `${{notes.length}} thoughts`;
+}}
+
+async function deleteNote(path) {{
+    if (!confirm("Delete this thought permanently?")) return;
+    await fetch(`/api/note/${{path}}`, {{method: 'DELETE'}});
+    renderTable();
+    refreshStats();
+}}
+
+function sortTable(col) {{
+    if (sortColumn === col) sortAsc = !sortAsc;
+    else {{ sortColumn = col; sortAsc = true; }}
+    renderTable();
 }}
 
 async function loadModels() {{
@@ -413,16 +546,6 @@ async function refreshModels() {{
     await loadModels();
     await renderModelTable();
 }}
-async function loadNotes() {{
-    const res = await fetch('/api/notes');
-    const notes = await res.json();
-    const container = document.getElementById('notesList');
-    container.innerHTML = notes.slice(0,9).map(n => `
-        <div onclick="showNoteModal('${{n.path}}')" class="cursor-pointer block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700 transition-all">
-            <div class="font-medium">${{n.name}}</div>
-        </div>
-    `).join('');
-}}
 async function showNoteModal(path) {{
     currentNotePath = path;
     const res = await fetch(`/api/note/${{path}}`);
@@ -440,13 +563,10 @@ async function deleteCurrentNote() {{
     if (!confirm("Permanently delete this note?")) return;
 
     const res = await fetch(`/api/note/${{currentNotePath}}`, {{method: 'DELETE'}});
-    const data = await res.json();
-    if (data.status === "deleted") {{
+    if ((await res.json()).status === "deleted") {{
         closeModal();
-        await loadNotes();
-        await refreshStats();
-    }} else {{
-        alert("Delete failed");
+        renderTable();
+        refreshStats();
     }}
 }}
 function closeModal() {{
@@ -463,12 +583,13 @@ document.getElementById('noteModal').addEventListener('click', (e) => {{
 }});
 async function buildVault() {{
     await fetch('/build', {{method:'POST'}});
-    loadNotes();
+    renderTable();
     refreshStats();
 }}
 async function enhanceWithAI() {{
     await fetch('/api/enhance', {{method:'POST'}});
     alert('All notes enhanced with Ollama summaries!');
+    renderTable();
     refreshStats();
 }}
 async function sendChat() {{
@@ -517,8 +638,8 @@ async function saveThought() {{
             <p>${{data.reply}}</p>
         `;
         input.value = '';
-        await loadNotes();
-        await refreshStats();
+        renderTable();
+        refreshStats();
     }} else {{
         replySection.innerHTML = `<p class="text-red-600">Error: ${{data.reply}}</p>`;
     }}
@@ -575,13 +696,14 @@ function switchTab(n) {{
 
     if (n===2) loadModels().then(() => renderModelTable());
     if (n===3) loadPrompts();
-    if (n===0) {{ loadNotes(); refreshStats(); }}
+    if (n===0) {{ renderTable(); refreshStats(); }}
 }}
 window.onload = () => {{
     refreshStats();
-    loadNotes();
+    renderTable();
     loadPrompts();
     switchTab(0);
+    highlightActiveCard();
 }}
 </script>
 </body>

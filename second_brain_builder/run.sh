@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - sortable table now filters instantly when clicking any category card
+# purpose: One-click runner - Avg Confidence now displayed inside each category card exactly like screenshot
 
 #!/bin/bash
 set -e
@@ -14,8 +14,9 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== SORTABLE CATEGORY TABLE READY ==="
-echo "Click any category card above the table to filter instantly"
-echo "Click table headers to sort by Filename/Category/Date"
-echo "All fixed - no more NameError"
+echo "=== AVG CONFIDENCE INSIDE CATEGORY CARDS ==="
+echo "Each card now shows:"
+echo "• Big count"
+echo "• Small green Avg Confidence (exactly like screenshot)"
+echo "All inside the dashboard tab block"
 "$VENV_DIR/bin/python" main.py "$@"

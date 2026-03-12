@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner — "Filter thoughts..." live search box added above table
+# purpose: One-click runner — now reminds that .gitignore is active and protects data
 
 #!/bin/bash
 set -e
@@ -14,8 +14,7 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== FILTER THOUGHTS SEARCH BOX ADDED ==="
-echo "• Live search input above the table"
-echo "• Filters instantly on Thought column"
-echo "• Works together with category cards"
+echo "=== .gitignore ACTIVE ==="
+echo "• All notes, logs, .venv, and databases are now protected from git"
+echo "• Only code + config is tracked"
 "$VENV_DIR/bin/python" main.py "$@"

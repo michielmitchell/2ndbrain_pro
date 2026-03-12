@@ -1,0 +1,57 @@
+# filename: .gitignore
+# purpose: Properly configured root .gitignore — excludes ALL actual data, logs, venv, caches, databases
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Logs and temporary files
+logs/
+*.log
+*.log.*
+tmp/
+
+# Actual user data / Obsidian vault (NEVER commit thoughts or notes)
+vault/
+notes/
+thoughts/
+reports/
+youtube/
+*.md
+
+# SQLite config databases
+*.db
+*.sqlite
+*.sqlite3
+models.db
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Temporary build / test files
+*.tmp
+*.temp
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Do not track the database_architecture.txt if it contains paths
+database_architecture.txt
+
+# Keep these (explicitly allow)
+!requirements.txt
+!README.md
+!run.sh
+!2b+

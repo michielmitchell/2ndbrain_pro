@@ -1,5 +1,5 @@
 # filename: second_brain_builder/requirements.txt
-# purpose: Production dependencies for modular second brain application (PEP8 compliant, now includes web hosting)
+# purpose: Production dependencies (unchanged, now safely installed in venv)
 
 yt-dlp>=2025.1.0
 youtube-transcript-api>=0.6.2

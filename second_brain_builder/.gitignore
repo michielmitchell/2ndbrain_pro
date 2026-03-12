@@ -1,0 +1,11 @@
+# filename: second_brain_builder/.gitignore
+# purpose: Clean git repo - ignore venv, generated output, logs, caches
+
+.venv/
+logs/
+output/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store

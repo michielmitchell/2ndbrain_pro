@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner — AI Review JSON extraction now robust (ignores extra explanation text)
+# purpose: One-click runner — ensures logs/ directory exists for CLI
 
 #!/bin/bash
 set -e
@@ -14,7 +14,10 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== AI REVIEW JSON EXTRACTION FIXED ==="
-echo "• Now extracts clean JSON even when Ollama adds explanation text"
-echo "• Category + Confidence update instantly after every review"
+echo "=== CLI TOOL 2b+ READY ==="
+echo "• Usage: 2b+ \"your thought text here\""
+echo "• Example: 2b+ \"this is to show how a CLI command would look for getting a thought into the brain\""
+mkdir -p logs
+chmod +x 2b+
+ln -sf "$(pwd)/2b+" ../2b+ 2>/dev/null || true
 "$VENV_DIR/bin/python" main.py "$@"

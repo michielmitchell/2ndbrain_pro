@@ -1,8 +1,8 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Prompts Config tab - removed all success alerts ("saved" popups) after normal saves; only confirm() remains for destructive Reset actions
+# purpose: Silenced the harmless /favicon.ico 404 forever (browser tab icon request) - added clean 204 route + all other tabs fully working
 
 from fastapi import FastAPI, Body
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import os
@@ -18,6 +18,11 @@ from src.modules.prompt_manager import prompt_manager
 
 app = FastAPI(title="Second Brain Builder")
 app.mount("/vault", StaticFiles(directory=str(VAULT_ROOT), html=True), name="vault")
+
+# Silences the browser's automatic favicon request (no more 404 in logs)
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
 
 ollama_client = OllamaClient()
 
@@ -229,7 +234,6 @@ async def root():
         <!-- Prompts Config Tab -->
         <div id="tab4" class="flex-1 p-6 overflow-hidden">
             <div class="space-y-6 h-full flex flex-col">
-                <!-- Categorization Prompt -->
                 <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
                     <h3 class="font-semibold text-lg mb-3">Categorization Prompt</h3>
                     <textarea id="categorizationPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
@@ -242,8 +246,6 @@ async def root():
                         </button>
                     </div>
                 </div>
-
-                <!-- Search Prompt -->
                 <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
                     <h3 class="font-semibold text-lg mb-3">Search Prompt</h3>
                     <textarea id="searchPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
@@ -256,8 +258,6 @@ async def root():
                         </button>
                     </div>
                 </div>
-
-                <!-- Confidence Threshold -->
                 <div class="bg-zinc-900 rounded-3xl p-5">
                     <h3 class="font-semibold text-lg mb-3">Confidence Threshold</h3>
                     <div class="flex items-center gap-6">
@@ -457,7 +457,6 @@ async function loadPrompts() {{
 async function saveCategorizationPrompt() {{
     const value = document.getElementById('categorizationPrompt').value;
     await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"categorization", value}})}});
-    // NO ALERT - silent save
 }}
 async function resetCategorizationPrompt() {{
     if (confirm("Reset to default? This is a destructive action.")) {{
@@ -468,7 +467,6 @@ async function resetCategorizationPrompt() {{
 async function saveSearchPrompt() {{
     const value = document.getElementById('searchPrompt').value;
     await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"search", value}})}});
-    // NO ALERT - silent save
 }}
 async function resetSearchPrompt() {{
     if (confirm("Reset to default? This is a destructive action.")) {{
@@ -482,7 +480,6 @@ function updateThresholdValue() {{
 }}
 async function saveThreshold() {{
     await fetch('/api/save_threshold', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{value: currentThreshold}})}});
-    // NO ALERT - silent save
 }}
 function switchTab(n) {{
     document.querySelectorAll('#tab0,#tab1,#tab2,#tab3,#tab4').forEach((el,i)=>el.classList.toggle('hidden', i!==n));

@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - Prompts Config now has silent saves (no popups) and confirm() only for destructive Reset actions
+# purpose: One-click runner - favicon.ico 404 silenced forever (no more log spam)
 
 #!/bin/bash
 set -e
@@ -14,7 +14,6 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== Prompts Config updated ==="
-echo "• Save actions are now silent (no alerts)"
-echo "• Only destructive Reset actions show confirm()"
+echo "=== favicon.ico 404 silenced forever ==="
+echo "No more 404 for the browser tab icon request"
 "$VENV_DIR/bin/python" main.py "$@"

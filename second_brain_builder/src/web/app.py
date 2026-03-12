@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Checkboxes kept + Select All header. Bulk delete bar removed (no screen jump). All regex escapes fixed (no more SyntaxWarning).
+# purpose: Checkboxes stay (left column + Select All header). Clicking checkbox ONLY toggles it. Clicking anywhere else on row opens modal. No bulk bar.
 
 import re
 from fastapi import FastAPI, Body
@@ -267,7 +267,7 @@ async def root():
                 </div>
             </div>
 
-            <!-- Clean table with checkboxes (no bulk bar) -->
+            <!-- Table with checkboxes (modal only on non-checkbox clicks) -->
             <div class="bg-zinc-900 rounded-3xl overflow-hidden">
                 <div class="px-8 py-5 border-b border-zinc-700 flex justify-between items-center">
                     <h3 id="tableTitle" class="text-lg font-semibold">All Thoughts</h3>
@@ -449,8 +449,8 @@ async function renderTable() {{
         const conf = confMatch ? confMatch[1] : '0.65';
         const dateMatch = n.name.match(/(\\d{{8}})\\.md$/);
         const date = dateMatch ? dateMatch[1] : '';
-        html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800 cursor-pointer" onclick="showNoteModal('${{n.path}}')">
-            <td class="p-4"><input type="checkbox" class="row-checkbox accent-violet-500 w-5 h-5"></td>
+        html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800 cursor-pointer" onclick="if(!event.target.closest('input[type=checkbox]')) showNoteModal('${{n.path}}')">
+            <td class="p-4"><input type="checkbox" class="row-checkbox accent-violet-500 w-5 h-5" onclick="event.stopImmediatePropagation()"></td>
             <td class="p-4 font-medium">${{n.name}}</td>
             <td class="p-4">${{cat}}</td>
             <td class="p-4 text-emerald-400 font-mono">${{conf}}</td>

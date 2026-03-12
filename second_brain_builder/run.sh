@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - checkboxes kept, bulk bar removed, SyntaxWarning fixed
+# purpose: One-click runner - checkboxes toggle only, row click opens modal (checkbox click ignored)
 
 #!/bin/bash
 set -e
@@ -14,8 +14,8 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== CHECKBOXES KEPT — NO BULK BAR — WARNINGS FIXED ==="
-echo "• Left column checkboxes + Select All header"
-echo "• No pop-up bar = zero screen jump"
-echo "• All regex escapes corrected"
+echo "=== CHECKBOXES TOGGLE ONLY — MODAL ON ROW ELSEWHERE ==="
+echo "• Click checkbox = toggle only"
+echo "• Click anywhere else on row = open modal"
+echo "• Select All header still works"
 "$VENV_DIR/bin/python" main.py "$@"

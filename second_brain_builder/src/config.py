@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/config.py
-# purpose: Central config with all paths and constants - ensures subfolder structure is defined
+# purpose: Central config with all paths and constants - ensures subfolder structure is defined (added DEFAULT_PORT for hosting)
 
 from pathlib import Path
 
@@ -7,6 +7,8 @@ PROJECT_ROOT = Path(__file__).parent.parent
 VAULT_ROOT = PROJECT_ROOT / "output" / "my_second_brain"
 RAW_DIR = PROJECT_ROOT / "data"
 LOG_DIR = PROJECT_ROOT / "logs"
+
+DEFAULT_PORT = 8000
 
 # All required subfolders (created via folder_setup)
 YOUTUBE_NOTES_DIR = VAULT_ROOT / "youtube_notes"

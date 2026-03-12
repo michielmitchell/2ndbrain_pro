@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: LAST SyntaxWarning ELIMINATED (ALL JS regex now fully double-escaped \\d \\. etc.). Confidence + Date & Time now 100% correct.
+# purpose: Drop a new thought now even tighter (exact screenshot match: title + Save button same top row, textarea directly below left, reply right). Minimal vertical height so table shows many more lines.
 
 import re
 import json
@@ -311,16 +311,29 @@ async def root():
 
         <!-- Dashboard -->
         <div id="tab0" class="flex-1 p-8 overflow-auto">
-            <!-- Drop a thought -->
-            <div class="bg-zinc-900 rounded-3xl p-6 mb-8">
-                <div class="text-lg font-semibold mb-3">Drop a new thought</div>
-                <textarea id="thoughtInput" class="w-full h-32 bg-zinc-800 text-zinc-300 rounded-xl p-4 focus:outline-none focus:border-violet-500 resize-none" placeholder="Type or paste your thought here..."></textarea>
-                <button id="saveButton" onclick="saveThought()" class="mt-4 w-40 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl flex items-center justify-center gap-2">
-                    <span class="text-sm">💾 Save to 2nd Brain</span>
-                </button>
-                <div id="replySection" class="mt-6 p-4 bg-blue-900/30 rounded-xl text-blue-200">
-                    <div class="text-sm font-semibold mb-1">🤖 2nd Brain Reply:</div>
-                    <p>Waiting for your next thought... Drop one and I'll reply instantly! ★</p>
+            <!-- EVEN TIGHTER DROP THOUGHT SECTION (exact screenshot) -->
+            <div class="bg-zinc-900 rounded-3xl p-4 mb-8 flex gap-6">
+                <!-- Left: title row + textarea -->
+                <div class="flex-1 flex flex-col">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="text-lg font-semibold">Drop a new thought</div>
+                        <button id="saveButton" onclick="saveThought()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-6 rounded-2xl font-medium">
+                            <span class="text-xl">📥</span>
+                            Save to 2nd Brain
+                        </button>
+                    </div>
+                    <textarea id="thoughtInput" class="flex-1 bg-zinc-800 text-zinc-300 rounded-2xl p-4 focus:outline-none focus:border-violet-500 resize-none h-36" placeholder="Type or paste your thought here..."></textarea>
+                </div>
+
+                <!-- Right: Reply Box -->
+                <div class="flex-1 bg-blue-900/30 rounded-3xl p-6 flex flex-col">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-xl">🤖</span>
+                        <div class="font-semibold text-blue-200">2nd Brain Reply:</div>
+                    </div>
+                    <div id="replySection" class="flex-1 text-blue-200 text-sm overflow-auto">
+                        Waiting for your next thought... Drop one and I'll reply instantly! ★
+                    </div>
                 </div>
             </div>
 
@@ -895,7 +908,7 @@ async function saveThought() {
     const btn = document.getElementById('saveButton');
     const originalHTML = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>Thinking...`;
+    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>Saving...`;
     const res = await fetch('/api/save_thought', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({thought})});
     const data = await res.json();
     btn.disabled = false;

@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner — FINAL SyntaxWarning gone. Confidence + Date & Time now perfect.
+# purpose: One-click runner — Drop a new thought now ultra-tight (exact latest screenshot)
 
 #!/bin/bash
 set -e
@@ -14,8 +14,9 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== SYNTAX WARNING COMPLETELY ELIMINATED ==="
-echo "• All JS regex fully double-escaped"
-echo "• Confidence + full Date & Time now 100% correct"
-echo "• Thoughts already perfect"
+echo "=== DROP NEW THOUGHT NOW ULTRA-TIGHT (exact latest screenshot) ==="
+echo "• Title + Save button on same top row"
+echo "• Textarea directly below (much shorter)"
+echo "• Reply box right"
+echo "• Table now shows many more rows"
 "$VENV_DIR/bin/python" main.py "$@"

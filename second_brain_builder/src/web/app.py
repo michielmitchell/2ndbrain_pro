@@ -1,7 +1,8 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Checkboxes stay (left column + Select All header). Clicking checkbox ONLY toggles it. Clicking anywhere else on row opens modal. No bulk bar.
+# purpose: AI Review now robustly renames file (handles legacy names like review-...--date.md), updates category+confidence, appends summary. Table + stats refresh LIVE after EVERY thought (real-time update). DB (file system) now correctly reflects new info.
 
 import re
+import json
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -141,19 +142,52 @@ async def build_vault():
     create_obsidian_structure()
     return {"status": "success"}
 
-@app.post("/api/enhance")
-async def enhance_all():
-    enhanced = 0
-    for root, _, files in os.walk(VAULT_ROOT):
-        for f in files:
-            if f.endswith(".md"):
-                p = Path(root) / f
-                summary = ollama_client.enhance_note(p)
-                if summary and "unavailable" not in summary:
-                    with open(p, "a", encoding="utf-8") as fp:
-                        fp.write(f"\n\n## AI Summary (Ollama)\n{summary}\n")
-                    enhanced += 1
-    return {"enhanced": enhanced}
+@app.post("/api/enhance_note")
+async def enhance_note(request: dict = Body(...)):
+    path = request.get("path")
+    p = VAULT_ROOT / path
+    if not (p.exists() and p.is_file()):
+        return {"status": "failed"}
+    content = p.read_text(encoding="utf-8")
+    review_prompt = prompt_manager.get_prompt("categorization").replace("{thought}", content)
+    assignment = model_manager.get_assignment()
+    primary_model = assignment.get("primary", "qwen2.5:14b")
+    print(f"[AI REVIEW PROMPT SENT TO {primary_model}]\n{review_prompt}\n")
+    summary = ollama_client.chat_with_vault(review_prompt, primary_model)
+    print(f"[AI REVIEW RAW RESPONSE]\n{summary}\n")
+    try:
+        data = json.loads(summary.strip())
+        new_category = data.get("category", "Review")
+        new_confidence = float(data.get("confidence", 0.65))
+        # ROBUST slug + date extraction (handles legacy names like review-...--date.md)
+        stem = p.stem
+        # Remove old category prefix
+        if '-' in stem:
+            slug_part = stem.split('-', 1)[1]
+        else:
+            slug_part = stem
+        # Clean double dashes / trailing dashes
+        slug = re.sub(r'--+', '-', slug_part).strip('-')
+        # Extract date if present at end
+        date_match = re.search(r'(\d{8})$', slug)
+        if date_match:
+            date_part = date_match.group(1)
+            slug = slug[:-len(date_part)].strip('-')
+        else:
+            date_part = "20260312"
+        new_name = f"{new_category.lower()}-{slug}-{new_confidence:.2f}-{date_part}.md"
+        new_p = p.parent / new_name
+        if p != new_p:
+            p.rename(new_p)
+            print(f"[RENAME SUCCESS] {p.name} → {new_name}")
+            p = new_p
+        with open(p, "a", encoding="utf-8") as fp:
+            fp.write(f"\n\n## AI Review Summary (Ollama)\n{summary}\n")
+        print(f"[AI REVIEW SUCCESS] Added summary to {new_name}")
+        return {"status": "enhanced", "new_path": str(new_p.relative_to(VAULT_ROOT)), "summary": summary[:300]}
+    except Exception as e:
+        print(f"[AI REVIEW JSON PARSE FAILED] {e}")
+        return {"status": "failed"}
 
 @app.post("/api/chat")
 async def chat(request: dict = Body(...)):
@@ -177,7 +211,10 @@ async def root():
     <meta charset="UTF-8">
     <title>🧠 Second Brain Builder 2026</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap'); body {{ font-family: 'Inter', system-ui; }}</style>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        body {{ font-family: 'Inter', system-ui; }}
+    </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100">
 <div class="flex h-screen">
@@ -221,8 +258,8 @@ async def root():
                 </div>
             </div>
 
-            <!-- Category Cards with Avg Confidence -->
-            <div class="grid grid-cols-6 gap-6 mb-8" id="categoryCards">
+            <!-- Category Cards -->
+            <div class="grid grid-cols-6 gap-6 mb-8">
                 <div onclick="setCategoryFilter('all')" id="card-all" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer border-2 border-violet-500">
                     <div class="text-sm text-zinc-500">Total Thoughts</div>
                     <div class="flex justify-between items-baseline">
@@ -267,11 +304,24 @@ async def root():
                 </div>
             </div>
 
-            <!-- Table with checkboxes (modal only on non-checkbox clicks) -->
+            <!-- Table with bulk buttons in header -->
             <div class="bg-zinc-900 rounded-3xl overflow-hidden">
-                <div class="px-8 py-5 border-b border-zinc-700 flex justify-between items-center">
+                <div class="px-8 py-5 border-b border-zinc-700 flex items-center justify-between">
                     <h3 id="tableTitle" class="text-lg font-semibold">All Thoughts</h3>
-                    <span id="filteredCount" class="text-zinc-400 text-sm">0 thoughts</span>
+                    <div class="flex items-center gap-6">
+                        <div id="bulkActions" class="hidden flex items-center gap-3">
+                            <button onclick="deleteSelected()" class="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-medium text-sm">
+                                🗑️ Delete Selected
+                            </button>
+                            <button onclick="bulkEditSelected()" class="flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-medium text-sm">
+                                ✏️ Bulk Edit Selected
+                            </button>
+                            <button onclick="sendForAIReview()" id="reviewButton" class="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-medium text-sm">
+                                📤 Send Selected for AI Review (live)
+                            </button>
+                        </div>
+                        <span id="filteredCount" class="text-zinc-400 text-sm font-medium">0 thoughts</span>
+                    </div>
                 </div>
                 <table class="w-full">
                     <thead>
@@ -315,11 +365,11 @@ async def root():
             </div>
         </div>
 
-        <!-- Prompts Config Tab -->
+        <!-- Prompts Config Tab — CLEANED -->
         <div id="tab3" class="flex-1 p-6 overflow-hidden">
             <div class="space-y-6 h-full flex flex-col">
                 <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
-                    <h3 class="font-semibold text-lg mb-3">Categorization Prompt</h3>
+                    <h3 class="font-semibold text-lg mb-3">Categorization Prompt <span class="text-xs text-emerald-400">(used by AI Review)</span></h3>
                     <textarea id="categorizationPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
                     <div class="flex gap-3 mt-4">
                         <button onclick="saveCategorizationPrompt()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
@@ -387,6 +437,7 @@ let currentNotePath = '';
 let currentCategoryFilter = 'all';
 let sortColumn = 0;
 let sortAsc = true;
+let selectedPaths = new Set();
 
 async function refreshStats() {{
     const res = await fetch('/api/stats');
@@ -449,8 +500,9 @@ async function renderTable() {{
         const conf = confMatch ? confMatch[1] : '0.65';
         const dateMatch = n.name.match(/(\\d{{8}})\\.md$/);
         const date = dateMatch ? dateMatch[1] : '';
+        const checked = selectedPaths.has(n.path) ? 'checked' : '';
         html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800 cursor-pointer" onclick="if(!event.target.closest('input[type=checkbox]')) showNoteModal('${{n.path}}')">
-            <td class="p-4"><input type="checkbox" class="row-checkbox accent-violet-500 w-5 h-5" onclick="event.stopImmediatePropagation()"></td>
+            <td class="p-4"><input type="checkbox" class="row-checkbox accent-violet-500 w-5 h-5" data-path="${{n.path}}" ${{checked}} onclick="event.stopImmediatePropagation(); toggleRow(this)"></td>
             <td class="p-4 font-medium">${{n.name}}</td>
             <td class="p-4">${{cat}}</td>
             <td class="p-4 text-emerald-400 font-mono">${{conf}}</td>
@@ -463,18 +515,96 @@ async function renderTable() {{
 
     document.getElementById('thoughtsTableBody').innerHTML = html;
     document.getElementById('filteredCount').textContent = `${{notes.length}} thoughts`;
+    updateBulkUI();
+}}
+
+function toggleRow(checkbox) {{
+    const path = checkbox.dataset.path;
+    if (checkbox.checked) selectedPaths.add(path);
+    else selectedPaths.delete(path);
+    updateBulkUI();
 }}
 
 function toggleSelectAll() {{
     const checked = document.getElementById('selectAllHeader').checked;
     document.querySelectorAll('.row-checkbox').forEach(chk => {{
         chk.checked = checked;
+        const path = chk.dataset.path;
+        if (checked) selectedPaths.add(path);
+        else selectedPaths.delete(path);
     }});
+    updateBulkUI();
+}}
+
+function updateBulkUI() {{
+    const count = selectedPaths.size;
+    const bar = document.getElementById('bulkActions');
+    bar.classList.toggle('hidden', count === 0);
+}}
+
+async function deleteSelected() {{
+    if (selectedPaths.size === 0 || !confirm(`Delete ${{selectedPaths.size}} selected thoughts permanently?`)) return;
+    for (let path of Array.from(selectedPaths)) {{
+        await fetch(`/api/note/${{path}}`, {{method: 'DELETE'}});
+    }}
+    selectedPaths.clear();
+    renderTable();
+    refreshStats();
+}}
+
+async function bulkEditSelected() {{
+    if (selectedPaths.size === 0) return;
+    alert(`Bulk edit coming soon for ${{selectedPaths.size}} thoughts`);
+}}
+
+// LIVE AI REVIEW WITH ROBUST RENAME + REAL-TIME UPDATE AFTER EVERY THOUGHT
+async function sendForAIReview() {{
+    const paths = Array.from(selectedPaths);
+    if (paths.length === 0) return;
+
+    const reviewBtn = document.getElementById('reviewButton');
+    const originalHTML = reviewBtn.innerHTML;
+    reviewBtn.disabled = true;
+    let processed = 0;
+
+    for (let path of paths) {{
+        processed++;
+        reviewBtn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span> AI Review ${{processed}}/${{paths.length}}`;
+
+        try {{
+            const res = await fetch('/api/enhance_note', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/json'}},
+                body: JSON.stringify({{path}})
+            }});
+            const data = await res.json();
+
+            if (data.status === 'enhanced') {{
+                console.log(`[AI REVIEW SUCCESS] ${{path}} → ${{data.new_path}}`);
+                selectedPaths.delete(path);
+                const chk = document.querySelector(`input[data-path="${{path}}"]`);
+                if (chk) chk.checked = false;
+            }} else {{
+                console.log(`[AI REVIEW FAILED] ${{path}}`);
+            }}
+        }} catch (e) {{
+            console.error(`[AI REVIEW ERROR] ${{path}}: ${{e}}`);
+        }}
+
+        // REAL-TIME UPDATE AFTER EVERY THOUGHT
+        await renderTable();
+        await refreshStats();
+        updateBulkUI();
+    }}
+
+    reviewBtn.disabled = false;
+    reviewBtn.innerHTML = originalHTML;
 }}
 
 async function deleteNote(path) {{
     if (!confirm("Delete this thought permanently?")) return;
     await fetch(`/api/note/${{path}}`, {{method: 'DELETE'}});
+    selectedPaths.delete(path);
     renderTable();
     refreshStats();
 }}
@@ -581,6 +711,7 @@ async function deleteCurrentNote() {{
 
     const res = await fetch(`/api/note/${{currentNotePath}}`, {{method: 'DELETE'}});
     if ((await res.json()).status === "deleted") {{
+        selectedPaths.delete(currentNotePath);
         closeModal();
         renderTable();
         refreshStats();
@@ -675,7 +806,7 @@ async function saveCategorizationPrompt() {{
     await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"categorization", value}})}});
 }}
 async function resetCategorizationPrompt() {{
-    if (confirm("Reset to default? This is a destructive action.")) {{
+    if (confirm("Reset to default?")) {{
         await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"categorization", value:""}})}});
         loadPrompts();
     }}
@@ -685,7 +816,7 @@ async function saveSearchPrompt() {{
     await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"search", value}})}});
 }}
 async function resetSearchPrompt() {{
-    if (confirm("Reset to default? This is a destructive action.")) {{
+    if (confirm("Reset to default?")) {{
         await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"search", value:""}})}});
         loadPrompts();
     }}

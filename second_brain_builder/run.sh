@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - checkboxes toggle only, row click opens modal (checkbox click ignored)
+# purpose: One-click runner — AI Review now robustly renames files + LIVE table/stats update after every thought
 
 #!/bin/bash
 set -e
@@ -14,8 +14,8 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== CHECKBOXES TOGGLE ONLY — MODAL ON ROW ELSEWHERE ==="
-echo "• Click checkbox = toggle only"
-echo "• Click anywhere else on row = open modal"
-echo "• Select All header still works"
+echo "=== AI REVIEW NOW UPDATES BRAIN MEMORY LIVE ==="
+echo "• Robust rename for legacy files"
+echo "• Table + stats refresh after EVERY thought"
+echo "• Category and confidence now correct instantly"
 "$VENV_DIR/bin/python" main.py "$@"

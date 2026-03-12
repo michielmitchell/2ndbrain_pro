@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - sidebar now properly highlights the ACTIVE tab (Dashboard no longer permanently focused)
+# purpose: One-click runner - fixed syntax error + live metadata
 
 #!/bin/bash
 set -e
@@ -14,6 +14,6 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== Sidebar active tab FIXED ==="
-echo "The currently selected tab now has proper focus highlight"
+echo "=== LIVE METADATA FIXED + SyntaxError resolved ==="
+echo "All stats now update instantly after save"
 "$VENV_DIR/bin/python" main.py "$@"

@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Sidebar now correctly highlights the ACTIVE tab with focus (bg-zinc-800 text-white) - Dashboard no longer stuck as always active
+# purpose: Fixed Python SyntaxError in embedded JS + all metadata (Total Thoughts + stats + recent list) updates LIVE after save
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -30,6 +30,10 @@ async def get_note(path: str):
         content = full_path.read_text(encoding="utf-8")
         return {"filename": Path(path).name, "content": content}
     return {"error": "File not found"}
+
+@app.get("/api/stats")
+async def api_stats():
+    return get_vault_stats()
 
 ollama_client = OllamaClient()
 
@@ -134,7 +138,6 @@ async def api_save_thought(request: dict = Body(...)):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    stats = get_vault_stats()
     return f"""
 <!DOCTYPE html>
 <html>
@@ -146,7 +149,7 @@ async def root():
 </head>
 <body class="bg-zinc-950 text-zinc-100">
 <div class="flex h-screen">
-    <!-- Sidebar -->
+    <!-- Sidebar - 4 tabs -->
     <div class="w-72 bg-zinc-900 border-r border-zinc-800 p-6 flex flex-col">
         <div class="flex items-center gap-3 mb-8">
             <div class="w-9 h-9 bg-violet-600 rounded-xl flex items-center justify-center text-xl">🧠</div>
@@ -155,9 +158,8 @@ async def root():
         <nav class="flex-1 space-y-1">
             <a id="tab-link-0" onclick="switchTab(0)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl bg-zinc-800 text-white">📊 Dashboard</a>
             <a id="tab-link-1" onclick="switchTab(1)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">💬 AI Chat</a>
-            <a id="tab-link-2" onclick="switchTab(2)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">🧠 Thoughts</a>
-            <a id="tab-link-3" onclick="switchTab(3)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">⚙️ Models Config</a>
-            <a id="tab-link-4" onclick="switchTab(4)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">📝 Prompts Config</a>
+            <a id="tab-link-2" onclick="switchTab(2)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">⚙️ Models Config</a>
+            <a id="tab-link-3" onclick="switchTab(3)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">📝 Prompts Config</a>
         </nav>
         <div class="pt-6">
             <button onclick="buildVault()" class="w-full bg-violet-600 hover:bg-violet-700 py-4 rounded-3xl font-semibold">🚀 Build Vault</button>
@@ -172,26 +174,42 @@ async def root():
             <span id="status" class="px-4 py-1 text-xs bg-emerald-500/10 text-emerald-400 rounded-full">Ollama Ready</span>
         </div>
 
-        <!-- Dashboard Tab -->
+        <!-- Dashboard (live stats + thought capture + recent) -->
         <div id="tab0" class="flex-1 p-8 overflow-auto">
+            <!-- Drop a thought -->
+            <div class="bg-zinc-900 rounded-3xl p-6 mb-8">
+                <div class="text-lg font-semibold mb-3">Drop a new thought</div>
+                <textarea id="thoughtInput" class="w-full h-32 bg-zinc-800 text-zinc-300 rounded-xl p-4 focus:outline-none focus:border-violet-500 resize-none" placeholder="Type or paste your thought here..."></textarea>
+                <button id="saveButton" onclick="saveThought()" class="mt-4 w-40 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl flex items-center justify-center gap-2">
+                    <span class="text-sm">💾 Save to 2nd Brain</span>
+                </button>
+                <div id="replySection" class="mt-6 p-4 bg-blue-900/30 rounded-xl text-blue-200">
+                    <div class="text-sm font-semibold mb-1">🤖 2nd Brain Reply:</div>
+                    <p>Waiting for your next thought... Drop one and I'll reply instantly! ★</p>
+                </div>
+            </div>
+
+            <!-- Live Stats -->
             <div class="grid grid-cols-4 gap-6">
                 <div class="bg-zinc-900 rounded-3xl p-6">
                     <div class="text-sm text-zinc-500">Total Thoughts</div>
-                    <div id="totalNotes" class="text-5xl font-semibold mt-2">{stats["total_notes"]}</div>
+                    <div id="totalNotes" class="text-5xl font-semibold mt-2">0</div>
                 </div>
                 <div class="bg-zinc-900 rounded-3xl p-6">
                     <div class="text-sm text-zinc-500">Cloud Platforms</div>
-                    <div id="cloudCount" class="text-5xl font-semibold mt-2">{stats["cloud"]}</div>
+                    <div id="cloudCount" class="text-5xl font-semibold mt-2">0</div>
                 </div>
                 <div class="bg-zinc-900 rounded-3xl p-6">
                     <div class="text-sm text-zinc-500">Local Storage</div>
-                    <div id="localCount" class="text-5xl font-semibold mt-2">{stats["local"]}</div>
+                    <div id="localCount" class="text-5xl font-semibold mt-2">0</div>
                 </div>
                 <div class="bg-zinc-900 rounded-3xl p-6">
                     <div class="text-sm text-zinc-500">AI Databases</div>
-                    <div id="dbCount" class="text-5xl font-semibold mt-2">{stats["db"]}</div>
+                    <div id="dbCount" class="text-5xl font-semibold mt-2">0</div>
                 </div>
             </div>
+
+            <!-- Recent notes -->
             <div id="notesList" class="mt-10 grid grid-cols-3 gap-4"></div>
         </div>
 
@@ -204,25 +222,8 @@ async def root():
             </div>
         </div>
 
-        <!-- Thoughts Tab -->
-        <div id="tab2" class="flex-1 p-8 overflow-auto hidden flex flex-col">
-            <div class="flex-1 flex flex-col">
-                <div class="text-lg font-semibold mb-2">Drop a new thought</div>
-                <textarea id="thoughtInput" class="w-full h-32 bg-white text-gray-500 rounded-lg p-4 focus:outline-none focus:border-blue-500 resize-none" placeholder="Type or paste your thought here..."></textarea>
-                <button id="saveButton" onclick="saveThought()" class="mt-4 w-40 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg flex items-center justify-center gap-2">
-                    <span class="text-sm">💾 Save to 2nd Brain</span>
-                </button>
-                <div id="replySection" class="mt-6 p-4 bg-blue-100/50 rounded-lg text-blue-800">
-                    <div class="text-sm font-semibold mb-1">🤖 2nd Brain Reply:</div>
-                    <p>Waiting for your next thought... Drop one and I'll reply instantly! ★</p>
-                </div>
-            </div>
-            <input id="searchInput" type="text" placeholder="Search thoughts..." class="mt-auto bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 w-full" onkeyup="filterThoughts()">
-            <div id="thoughtsListFull" class="mt-4 grid grid-cols-2 gap-4"></div>
-        </div>
-
         <!-- Models Config Tab -->
-        <div id="tab3" class="flex-1 p-8 overflow-auto hidden">
+        <div id="tab2" class="flex-1 p-8 overflow-auto hidden">
             <div id="ollamaStatus" class="mb-6 p-4 bg-zinc-800 rounded-3xl flex items-center gap-3 text-sm"></div>
             <div class="bg-zinc-900 rounded-3xl p-6">
                 <div class="flex justify-between items-center mb-6">
@@ -239,7 +240,7 @@ async def root():
         </div>
 
         <!-- Prompts Config Tab -->
-        <div id="tab4" class="flex-1 p-6 overflow-hidden">
+        <div id="tab3" class="flex-1 p-6 overflow-hidden">
             <div class="space-y-6 h-full flex flex-col">
                 <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
                     <h3 class="font-semibold text-lg mb-3">Categorization Prompt</h3>
@@ -303,6 +304,15 @@ async def root():
 let messages = [];
 let modelsData = [];
 let currentThreshold = 0.65;
+
+async function refreshStats() {{
+    const res = await fetch('/api/stats');
+    const stats = await res.json();
+    document.getElementById('totalNotes').textContent = stats.total_notes;
+    document.getElementById('cloudCount').textContent = stats.cloud;
+    document.getElementById('localCount').textContent = stats.local;
+    document.getElementById('dbCount').textContent = stats.db;
+}}
 
 async function loadModels() {{
     const res = await fetch('/api/models');
@@ -392,28 +402,6 @@ async function loadNotes() {{
         </div>
     `).join('');
 }}
-async function loadThoughts() {{
-    const res = await fetch('/api/notes');
-    const notes = await res.json();
-    const container = document.getElementById('thoughtsListFull');
-    container.innerHTML = notes.filter(n => n.path.includes('thoughts')).slice(0,6).map(n => `
-        <div onclick="showNoteModal('${{n.path}}')" class="cursor-pointer block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700 transition-all">
-            <div class="font-medium">${{n.name}}</div>
-        </div>
-    `).join('');
-}}
-async function filterThoughts() {{
-    const term = document.getElementById('searchInput').value.toLowerCase();
-    const res = await fetch('/api/notes');
-    const notes = await res.json();
-    const filtered = notes.filter(n => n.path.includes('thoughts') && n.name.toLowerCase().includes(term));
-    const container = document.getElementById('thoughtsListFull');
-    container.innerHTML = filtered.slice(0,6).map(n => `
-        <div onclick="showNoteModal('${{n.path}}')" class="cursor-pointer block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700 transition-all">
-            <div class="font-medium">${{n.name}}</div>
-        </div>
-    `).join('');
-}}
 async function showNoteModal(path) {{
     const res = await fetch(`/api/note/${{path}}`);
     const data = await res.json();
@@ -439,10 +427,12 @@ document.getElementById('noteModal').addEventListener('click', (e) => {{
 async function buildVault() {{
     await fetch('/build', {{method:'POST'}});
     loadNotes();
+    refreshStats();
 }}
 async function enhanceWithAI() {{
     await fetch('/api/enhance', {{method:'POST'}});
     alert('All notes enhanced with Ollama summaries!');
+    refreshStats();
 }}
 async function sendChat() {{
     const input = document.getElementById('chatInput');
@@ -490,7 +480,8 @@ async function saveThought() {{
             <p>${{data.reply}}</p>
         `;
         input.value = '';
-        loadThoughts();
+        await loadNotes();
+        await refreshStats();
     }} else {{
         replySection.innerHTML = `<p class="text-red-600">Error: ${{data.reply}}</p>`;
     }}
@@ -532,10 +523,9 @@ async function saveThreshold() {{
     await fetch('/api/save_threshold', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{value: currentThreshold}})}});
 }}
 function switchTab(n) {{
-    document.querySelectorAll('#tab0,#tab1,#tab2,#tab3,#tab4').forEach((el,i)=>el.classList.toggle('hidden', i!==n));
-    document.getElementById('tabTitle').textContent = ['Dashboard','AI Chat','Thoughts','Models Config','Prompts Config'][n];
+    document.querySelectorAll('#tab0,#tab1,#tab2,#tab3').forEach((el,i)=>el.classList.toggle('hidden', i!==n));
+    document.getElementById('tabTitle').textContent = ['Dashboard','AI Chat','Models Config','Prompts Config'][n];
 
-    // ACTIVE TAB FOCUS - highlight the clicked sidebar item
     document.querySelectorAll('.tab-btn').forEach((el, i) => {{
         if (i === n) {{
             el.classList.add('bg-zinc-800', 'text-white');
@@ -546,12 +536,12 @@ function switchTab(n) {{
         }}
     }});
 
-    if (n===3) loadModels().then(() => renderModelTable());
-    if (n===2) loadThoughts();
-    if (n===4) loadPrompts();
-    if (n===0) loadNotes();
+    if (n===2) loadModels().then(() => renderModelTable());
+    if (n===3) loadPrompts();
+    if (n===0) {{ loadNotes(); refreshStats(); }}
 }}
 window.onload = () => {{
+    refreshStats();
     loadNotes();
     loadPrompts();
     switchTab(0);

@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: FIXED Thoughts tab bottom list - real model names (no more {n.name} placeholders) + proper loadThoughts + filterThoughts + correct JS template literal escape for Python f-string
+# purpose: Prompts Config tab - removed all success alerts ("saved" popups) after normal saves; only confirm() remains for destructive Reset actions
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -14,6 +14,7 @@ from src.modules.obsidian_exporter import create_obsidian_structure
 from src.modules.ai_processor import OllamaClient
 from src.modules.model_manager import model_manager
 from src.modules.thought_processor import save_thought_and_reply
+from src.modules.prompt_manager import prompt_manager
 
 app = FastAPI(title="Second Brain Builder")
 app.mount("/vault", StaticFiles(directory=str(VAULT_ROOT), html=True), name="vault")
@@ -61,6 +62,28 @@ async def api_notes():
                 rel_path = Path(root).relative_to(VAULT_ROOT) / f
                 notes.append({"path": str(rel_path), "name": f})
     return JSONResponse(notes)
+
+@app.get("/api/prompts")
+async def api_prompts():
+    return {
+        "categorization": prompt_manager.get_prompt("categorization"),
+        "search": prompt_manager.get_prompt("search"),
+        "threshold": prompt_manager.get_threshold()
+    }
+
+@app.post("/api/save_prompt")
+async def api_save_prompt(request: dict = Body(...)):
+    key = request.get("key")
+    value = request.get("value")
+    if key in ["categorization", "search"]:
+        prompt_manager.save_prompt(key, value)
+    return {"status": "saved"}
+
+@app.post("/api/save_threshold")
+async def api_save_threshold(request: dict = Body(...)):
+    value = float(request.get("value", 0.65))
+    prompt_manager.save_threshold(value)
+    return {"status": "saved"}
 
 @app.post("/build")
 async def build_vault():
@@ -122,6 +145,7 @@ async def root():
             <a onclick="switchTab(1)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">💬 AI Chat</a>
             <a onclick="switchTab(2)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">🧠 Thoughts</a>
             <a onclick="switchTab(3)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">⚙️ Models Config</a>
+            <a onclick="switchTab(4)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">📝 Prompts Config</a>
         </nav>
         <div class="pt-6">
             <button onclick="buildVault()" class="w-full bg-violet-600 hover:bg-violet-700 py-4 rounded-3xl font-semibold">🚀 Build Vault</button>
@@ -201,12 +225,56 @@ async def root():
                 <div class="mt-6 text-xs text-zinc-400">Auto-sorted Primary → FB1 → FB2 → FB3</div>
             </div>
         </div>
+
+        <!-- Prompts Config Tab -->
+        <div id="tab4" class="flex-1 p-6 overflow-hidden">
+            <div class="space-y-6 h-full flex flex-col">
+                <!-- Categorization Prompt -->
+                <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
+                    <h3 class="font-semibold text-lg mb-3">Categorization Prompt</h3>
+                    <textarea id="categorizationPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="saveCategorizationPrompt()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                            💾 Save Categorization Prompt
+                        </button>
+                        <button onclick="resetCategorizationPrompt()" class="px-6 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 py-3 rounded-xl font-medium flex items-center gap-2">
+                            🔄 Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search Prompt -->
+                <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
+                    <h3 class="font-semibold text-lg mb-3">Search Prompt</h3>
+                    <textarea id="searchPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="saveSearchPrompt()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                            💾 Save Search Prompt
+                        </button>
+                        <button onclick="resetSearchPrompt()" class="px-6 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 py-3 rounded-xl font-medium flex items-center gap-2">
+                            🔄 Reset Search Prompt
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Confidence Threshold -->
+                <div class="bg-zinc-900 rounded-3xl p-5">
+                    <h3 class="font-semibold text-lg mb-3">Confidence Threshold</h3>
+                    <div class="flex items-center gap-6">
+                        <input type="range" id="thresholdSlider" min="0.60" max="1.00" step="0.01" value="0.65" class="flex-1 accent-violet-500" oninput="updateThresholdValue()">
+                        <span id="thresholdValue" class="font-mono text-lg w-12 text-right">0.65</span>
+                        <button onclick="saveThreshold()" class="bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 rounded-xl font-semibold">Save Threshold</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
 let messages = [];
 let modelsData = [];
+let currentThreshold = 0.65;
 
 async function loadModels() {{
     const res = await fetch('/api/models');
@@ -372,23 +440,61 @@ async function saveThought() {{
             <p>${{data.reply}}</p>
         `;
         input.value = '';
-        loadThoughts(); // refresh list
+        loadThoughts();
     }} else {{
         replySection.innerHTML = `<p class="text-red-600">Error: ${{data.reply}}</p>`;
     }}
 }}
+async function loadPrompts() {{
+    const res = await fetch('/api/prompts');
+    const data = await res.json();
+    document.getElementById('categorizationPrompt').value = data.categorization;
+    document.getElementById('searchPrompt').value = data.search;
+    currentThreshold = data.threshold;
+    document.getElementById('thresholdSlider').value = currentThreshold;
+    document.getElementById('thresholdValue').textContent = currentThreshold.toFixed(2);
+}}
+async function saveCategorizationPrompt() {{
+    const value = document.getElementById('categorizationPrompt').value;
+    await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"categorization", value}})}});
+    // NO ALERT - silent save
+}}
+async function resetCategorizationPrompt() {{
+    if (confirm("Reset to default? This is a destructive action.")) {{
+        await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"categorization", value:""}})}});
+        loadPrompts();
+    }}
+}}
+async function saveSearchPrompt() {{
+    const value = document.getElementById('searchPrompt').value;
+    await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"search", value}})}});
+    // NO ALERT - silent save
+}}
+async function resetSearchPrompt() {{
+    if (confirm("Reset to default? This is a destructive action.")) {{
+        await fetch('/api/save_prompt', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{key:"search", value:""}})}});
+        loadPrompts();
+    }}
+}}
+function updateThresholdValue() {{
+    currentThreshold = parseFloat(document.getElementById('thresholdSlider').value);
+    document.getElementById('thresholdValue').textContent = currentThreshold.toFixed(2);
+}}
+async function saveThreshold() {{
+    await fetch('/api/save_threshold', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify({{value: currentThreshold}})}});
+    // NO ALERT - silent save
+}}
 function switchTab(n) {{
-    document.querySelectorAll('#tab0,#tab1,#tab2,#tab3').forEach((el,i)=>el.classList.toggle('hidden', i!==n));
-    document.getElementById('tabTitle').textContent = ['Dashboard','AI Chat','Thoughts','Models Config'][n];
-    if (n===3) {{
-        loadModels().then(() => renderModelTable());
-    }}
-    if (n===2) {{
-        loadThoughts();
-    }}
+    document.querySelectorAll('#tab0,#tab1,#tab2,#tab3,#tab4').forEach((el,i)=>el.classList.toggle('hidden', i!==n));
+    document.getElementById('tabTitle').textContent = ['Dashboard','AI Chat','Thoughts','Models Config','Prompts Config'][n];
+    if (n===3) loadModels().then(() => renderModelTable());
+    if (n===2) loadThoughts();
+    if (n===4) loadPrompts();
+    if (n===0) loadNotes();
 }}
 window.onload = () => {{
     loadNotes();
+    loadPrompts();
     switchTab(0);
 }}
 </script>

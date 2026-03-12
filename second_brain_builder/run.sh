@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - Delete Note button added in modal
+# purpose: One-click runner - dashboard now shows the exact AI categories (People, Projects, Ideas, Admin, Review) with live counts
 
 #!/bin/bash
 set -e
@@ -14,8 +14,13 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== DELETE NOTE BUTTON ADDED ==="
-echo "In the modal viewer (click any .md):"
-echo "• Red 🗑️ Delete Note button (with confirmation)"
-echo "• Instantly refreshes stats + list after delete"
+echo "=== AI CATEGORY DASHBOARD FIXED ==="
+echo "Cards now show the exact categories the AI sorts thoughts into:"
+echo "• Total Thoughts"
+echo "• People"
+echo "• Projects"
+echo "• Ideas"
+echo "• Admin"
+echo "• Review"
+echo "All counts update instantly after every save"
 "$VENV_DIR/bin/python" main.py "$@"

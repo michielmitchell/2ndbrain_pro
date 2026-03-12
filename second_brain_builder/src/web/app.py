@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Added Delete Note button in modal (with confirmation) that permanently deletes the .md file and instantly refreshes stats + list
+# purpose: Dashboard now shows the EXACT AI categories (People, Projects, Ideas, Admin, Review) with live counts
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -46,17 +46,17 @@ async def api_stats():
 ollama_client = OllamaClient()
 
 def get_vault_stats():
-    stats = {"total_notes": 0, "youtube": 0, "cloud": 0, "local": 0, "db": 0, "emerging": 0}
-    for root, _, files in os.walk(VAULT_ROOT):
-        for f in files:
-            if f.endswith(".md"):
-                stats["total_notes"] += 1
-                rel = str(Path(root).relative_to(VAULT_ROOT))
-                if "youtube_notes" in rel: stats["youtube"] += 1
-                elif "cloud_platforms" in rel: stats["cloud"] += 1
-                elif "local_storage" in rel: stats["local"] += 1
-                elif "databases" in rel: stats["db"] += 1
-                elif "emerging" in rel: stats["emerging"] += 1
+    stats = {"total_notes": 0, "People": 0, "Projects": 0, "Ideas": 0, "Admin": 0, "Review": 0}
+    thoughts_dir = VAULT_ROOT / "notes" / "thoughts"
+    if thoughts_dir.exists():
+        for f in thoughts_dir.glob("*.md"):
+            name = f.name.lower()
+            stats["total_notes"] += 1
+            if name.startswith("people-"): stats["People"] += 1
+            elif name.startswith("projects-"): stats["Projects"] += 1
+            elif name.startswith("ideas-"): stats["Ideas"] += 1
+            elif name.startswith("admin-"): stats["Admin"] += 1
+            elif name.startswith("review-"): stats["Review"] += 1
     return stats
 
 @app.get("/api/models")
@@ -157,7 +157,7 @@ async def root():
 </head>
 <body class="bg-zinc-950 text-zinc-100">
 <div class="flex h-screen">
-    <!-- Sidebar - 4 tabs -->
+    <!-- Sidebar -->
     <div class="w-72 bg-zinc-900 border-r border-zinc-800 p-6 flex flex-col">
         <div class="flex items-center gap-3 mb-8">
             <div class="w-9 h-9 bg-violet-600 rounded-xl flex items-center justify-center text-xl">🧠</div>
@@ -182,8 +182,9 @@ async def root():
             <span id="status" class="px-4 py-1 text-xs bg-emerald-500/10 text-emerald-400 rounded-full">Ollama Ready</span>
         </div>
 
-        <!-- Dashboard -->
+        <!-- AI Category Dashboard -->
         <div id="tab0" class="flex-1 p-8 overflow-auto">
+            <!-- Drop a thought -->
             <div class="bg-zinc-900 rounded-3xl p-6 mb-8">
                 <div class="text-lg font-semibold mb-3">Drop a new thought</div>
                 <textarea id="thoughtInput" class="w-full h-32 bg-zinc-800 text-zinc-300 rounded-xl p-4 focus:outline-none focus:border-violet-500 resize-none" placeholder="Type or paste your thought here..."></textarea>
@@ -196,22 +197,31 @@ async def root():
                 </div>
             </div>
 
-            <div class="grid grid-cols-4 gap-6">
+            <!-- Live Category Counts -->
+            <div class="grid grid-cols-6 gap-6">
                 <div class="bg-zinc-900 rounded-3xl p-6">
                     <div class="text-sm text-zinc-500">Total Thoughts</div>
                     <div id="totalNotes" class="text-5xl font-semibold mt-2">0</div>
                 </div>
                 <div class="bg-zinc-900 rounded-3xl p-6">
-                    <div class="text-sm text-zinc-500">Cloud Platforms</div>
-                    <div id="cloudCount" class="text-5xl font-semibold mt-2">0</div>
+                    <div class="text-sm text-zinc-500">People</div>
+                    <div id="peopleCount" class="text-5xl font-semibold mt-2">0</div>
                 </div>
                 <div class="bg-zinc-900 rounded-3xl p-6">
-                    <div class="text-sm text-zinc-500">Local Storage</div>
-                    <div id="localCount" class="text-5xl font-semibold mt-2">0</div>
+                    <div class="text-sm text-zinc-500">Projects</div>
+                    <div id="projectsCount" class="text-5xl font-semibold mt-2">0</div>
                 </div>
                 <div class="bg-zinc-900 rounded-3xl p-6">
-                    <div class="text-sm text-zinc-500">AI Databases</div>
-                    <div id="dbCount" class="text-5xl font-semibold mt-2">0</div>
+                    <div class="text-sm text-zinc-500">Ideas</div>
+                    <div id="ideasCount" class="text-5xl font-semibold mt-2">0</div>
+                </div>
+                <div class="bg-zinc-900 rounded-3xl p-6">
+                    <div class="text-sm text-zinc-500">Admin</div>
+                    <div id="adminCount" class="text-5xl font-semibold mt-2">0</div>
+                </div>
+                <div class="bg-zinc-900 rounded-3xl p-6">
+                    <div class="text-sm text-zinc-500">Review</div>
+                    <div id="reviewCount" class="text-5xl font-semibold mt-2">0</div>
                 </div>
             </div>
 
@@ -284,7 +294,7 @@ async def root():
     </div>
 </div>
 
-<!-- MODAL WITH DELETE BUTTON -->
+<!-- ELEGANT MARKDOWN MODAL WITH DELETE -->
 <div id="noteModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
     <div class="bg-zinc-900 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between px-8 py-5 border-b border-zinc-700">
@@ -318,9 +328,11 @@ async function refreshStats() {{
     const res = await fetch('/api/stats');
     const stats = await res.json();
     document.getElementById('totalNotes').textContent = stats.total_notes;
-    document.getElementById('cloudCount').textContent = stats.cloud;
-    document.getElementById('localCount').textContent = stats.local;
-    document.getElementById('dbCount').textContent = stats.db;
+    document.getElementById('peopleCount').textContent = stats.People;
+    document.getElementById('projectsCount').textContent = stats.Projects;
+    document.getElementById('ideasCount').textContent = stats.Ideas;
+    document.getElementById('adminCount').textContent = stats.Admin;
+    document.getElementById('reviewCount').textContent = stats.Review;
 }}
 
 async function loadModels() {{
@@ -425,7 +437,7 @@ async function showNoteModal(path) {{
 }}
 async function deleteCurrentNote() {{
     if (!currentNotePath) return;
-    if (!confirm("Permanently delete this note? This cannot be undone.")) return;
+    if (!confirm("Permanently delete this note?")) return;
 
     const res = await fetch(`/api/note/${{currentNotePath}}`, {{method: 'DELETE'}});
     const data = await res.json();
@@ -434,7 +446,7 @@ async function deleteCurrentNote() {{
         await loadNotes();
         await refreshStats();
     }} else {{
-        alert("Delete failed: " + (data.error || "unknown error"));
+        alert("Delete failed");
     }}
 }}
 function closeModal() {{

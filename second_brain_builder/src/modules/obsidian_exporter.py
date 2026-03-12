@@ -1,8 +1,8 @@
 # filename: second_brain_builder/src/modules/obsidian_exporter.py
-# purpose: Final export - creates Obsidian index and .obsidian config with backlinks
+# purpose: Final export - creates Obsidian index and .obsidian config with backlinks (fixed import)
 
 from pathlib import Path
-from config import VAULT_ROOT
+from src.config import VAULT_ROOT
 
 def create_obsidian_structure() -> None:
     """Build Obsidian vault index and minimal config for instant use."""

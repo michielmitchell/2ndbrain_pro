@@ -1,11 +1,11 @@
 # filename: second_brain_builder/src/modules/video_processor.py
-# purpose: Standalone module to fetch titles + full transcripts from YT links and save .md notes
+# purpose: Standalone module to fetch titles + full transcripts from YT links and save .md notes (fixed import)
 
 import logging
 from pathlib import Path
 import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
-from config import YOUTUBE_NOTES_DIR, INPUT_LINKS_FILE, DEFAULT_YT_LINKS
+from src.config import YOUTUBE_NOTES_DIR, INPUT_LINKS_FILE, DEFAULT_YT_LINKS
 
 logging.basicConfig(filename='logs/video_processor.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 

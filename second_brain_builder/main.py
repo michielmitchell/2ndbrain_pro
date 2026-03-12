@@ -1,5 +1,5 @@
 # filename: second_brain_builder/main.py
-# purpose: CLI entry point - original build OR web server mode with customizable port (production ready)
+# purpose: CLI entry point - supports --serve --port (web now launches full proper GUI dashboard)
 
 import argparse
 import sys
@@ -12,26 +12,23 @@ from src.modules.obsidian_exporter import create_obsidian_structure
 logging.basicConfig(filename='logs/main.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Modular Second Brain Builder - CLI or hosted web server")
-    parser.add_argument("--serve", action="store_true", help="Start FastAPI web server")
-    parser.add_argument("--port", type=int, default=8000, help="Custom port for server (default 8000)")
-    parser.add_argument("--links", default="pasted-text.txt", help="YT links file")
-    parser.add_argument("--report", default="Second Brain tools comparison 2026.txt", help="Report file")
+    parser = argparse.ArgumentParser(description="Modular Second Brain Builder - CLI or proper GUI web server")
+    parser.add_argument("--serve", action="store_true", help="Start web server with proper Tailwind GUI")
+    parser.add_argument("--port", type=int, default=8000, help="Custom port")
     args = parser.parse_args()
     if not setup_all_folders():
-        print("Folder setup failed - aborting.")
+        print("Folder setup failed")
         sys.exit(1)
     if args.serve:
-        logging.info(f"Starting web server on http://0.0.0.0:{args.port}")
+        logging.info(f"Starting GUI server on http://0.0.0.0:{args.port}")
         import uvicorn
-        uvicorn.run("src.web.app:app", host="0.0.0.0", port=args.port, reload=False)
+        from src.web.app import app
+        uvicorn.run(app, host="0.0.0.0", port=args.port)
     else:
-        logging.info("Starting CLI modular processing")
         process_youtube_links()
         process_report()
         create_obsidian_structure()
-        print("Second Brain vault ready in output/my_second_brain/")
-        print("Open in Obsidian or visit http://localhost:8000/vault after running with --serve")
+        print("Vault ready - run with --serve for proper GUI dashboard")
 
 if __name__ == "__main__":
     main()

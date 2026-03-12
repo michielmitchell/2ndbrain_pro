@@ -1,10 +1,10 @@
 # filename: second_brain_builder/src/modules/document_processor.py
-# purpose: Parses comparison report into category-specific MD files + raw copy
+# purpose: Parses comparison report into category-specific MD files + raw copy (fixed import)
 
 import logging
 import re
 from pathlib import Path
-from config import RAW_DOCS_DIR, CLOUD_DIR, LOCAL_DIR, DB_DIR, EMERGING_DIR, INPUT_REPORT_FILE
+from src.config import RAW_DOCS_DIR, CLOUD_DIR, LOCAL_DIR, DB_DIR, EMERGING_DIR, INPUT_REPORT_FILE
 
 logging.basicConfig(filename='logs/document_processor.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 

@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner — ensures logs/ directory exists for CLI
+# purpose: One-click runner — "Filter thoughts..." live search box added above table
 
 #!/bin/bash
 set -e
@@ -14,10 +14,8 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== CLI TOOL 2b+ READY ==="
-echo "• Usage: 2b+ \"your thought text here\""
-echo "• Example: 2b+ \"this is to show how a CLI command would look for getting a thought into the brain\""
-mkdir -p logs
-chmod +x 2b+
-ln -sf "$(pwd)/2b+" ../2b+ 2>/dev/null || true
+echo "=== FILTER THOUGHTS SEARCH BOX ADDED ==="
+echo "• Live search input above the table"
+echo "• Filters instantly on Thought column"
+echo "• Works together with category cards"
 "$VENV_DIR/bin/python" main.py "$@"

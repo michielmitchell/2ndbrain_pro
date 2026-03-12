@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: AI Review now reliably extracts JSON even when Ollama adds explanation text after it. Category + confidence now update correctly on every review.
+# purpose: Added live "Filter thoughts..." search box above table (real-time filtering on Thought column, works with category filter too)
 
 import re
 import json
@@ -199,7 +199,6 @@ Return ONLY valid JSON. NO explanations, NO extra text after the closing brace."
     print(f"[AI REVIEW PROMPT SENT TO {primary_model}]\n{review_prompt}\n")
     raw = ollama_client.chat_with_vault(review_prompt, primary_model)
     print(f"[AI REVIEW RAW RESPONSE]\n{raw}\n")
-    # Robust JSON extraction - take only the first complete JSON object
     json_match = re.search(r'(\{.*?\})', raw, re.DOTALL)
     if not json_match:
         print("[AI REVIEW JSON EXTRACTION FAILED] No JSON block found")
@@ -394,6 +393,7 @@ async def root():
             <div class="bg-zinc-900 rounded-3xl overflow-hidden">
                 <div class="px-8 py-5 border-b border-zinc-700 flex items-center justify-between">
                     <h3 id="tableTitle" class="text-lg font-semibold">All Thoughts</h3>
+                    <input id="thoughtFilter" type="text" placeholder="Filter thoughts..." class="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-2 text-sm focus:outline-none focus:border-violet-500 w-80">
                     <div class="flex items-center gap-6">
                         <div id="bulkActions" class="hidden flex items-center gap-3">
                             <button onclick="deleteSelected()" class="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-medium text-sm">
@@ -602,8 +602,12 @@ function setCategoryFilter(cat) {
 async function renderTable() {
     const res = await fetch('/api/notes');
     let notes = await res.json();
+    const filterText = document.getElementById('thoughtFilter').value.toLowerCase().trim();
+    if (filterText) {
+        notes = notes.filter(n => n.thought.toLowerCase().includes(filterText));
+    }
     if (currentCategoryFilter !== 'all') {
-        notes = notes.filter(n => n.thought.toLowerCase().includes(currentCategoryFilter.toLowerCase()) || n.category.toLowerCase() === currentCategoryFilter.toLowerCase());
+        notes = notes.filter(n => n.category.toLowerCase() === currentCategoryFilter.toLowerCase());
     }
     notes.sort((a, b) => {
         let va = a.thought, vb = b.thought;
@@ -995,6 +999,9 @@ function switchTab(n) {
     if (n===3) loadPrompts();
     if (n===0) { renderTable(); refreshStats(); }
 }
+document.getElementById('thoughtFilter').addEventListener('keyup', () => {
+    renderTable();
+});
 window.onload = () => {
     refreshStats();
     renderTable();

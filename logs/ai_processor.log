@@ -110,3 +110,203 @@
 2026-03-12 21:42:34,987 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
 2026-03-12 21:42:36,341 - INFO - Ollama connected to http://192.168.3.237:11434
 2026-03-12 21:42:37,870 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 21:59:23,187 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 21:59:56,296 - ERROR - Chat failed: Server disconnected without sending a response.
+2026-03-12 21:59:57,673 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:10,325 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:11,717 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:13,282 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:14,672 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:16,949 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:18,325 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:20,331 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:21,719 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:23,484 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:24,892 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:26,937 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:28,303 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:29,825 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:31,176 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:32,713 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:34,072 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:36,533 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:37,898 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:39,438 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:40,821 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:42,554 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:43,957 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:47,256 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:48,663 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:54,474 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:55,855 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:00:57,937 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:00:59,329 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:01,939 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:03,345 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:05,406 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:06,790 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:08,743 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:10,150 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:13,559 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:14,963 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:17,211 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:18,601 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:20,507 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:21,942 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:25,731 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:27,142 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:30,174 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:31,589 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:34,875 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:36,293 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:38,909 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:40,318 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:44,769 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:46,176 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:50,838 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:52,240 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:55,291 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:01:56,703 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:01:58,619 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:02:00,024 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:02:50,090 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:02:51,482 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:03:23,105 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:03:24,523 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:03:42,463 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:03:43,830 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:03:59,580 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:00,975 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:02,924 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:04,310 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:06,737 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:08,127 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:10,351 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:11,767 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:13,287 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:14,692 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:16,938 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:18,323 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:20,237 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:21,599 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:23,755 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:25,165 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:26,667 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:28,054 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:29,539 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:30,926 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:32,427 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:33,815 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:35,302 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:36,685 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:42,173 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:43,575 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:48,104 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:49,506 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:51,904 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:53,280 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:55,447 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:04:56,848 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:04:59,958 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:05:01,366 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:05:04,202 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:05:05,591 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:05:12,719 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:05:14,127 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:05:16,282 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:05:17,662 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:05:19,592 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:05:20,979 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:05:23,491 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:05:24,891 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:05:27,244 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:05:28,638 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:05:31,597 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:05:33,009 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:05:38,433 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:05:39,844 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:05:57,672 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:05:59,056 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:01,364 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:02,789 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:07,521 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:08,904 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:13,358 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:14,762 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:16,250 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:17,643 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:19,629 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:21,018 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:23,479 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:24,850 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:27,090 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:28,481 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:31,388 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:32,782 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:34,833 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:36,203 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:37,688 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:39,088 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:41,149 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:42,510 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:43,991 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:45,376 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:47,590 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:48,943 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:51,054 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:52,443 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:54,470 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:55,837 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:06:57,314 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:06:58,701 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:02,078 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:03,450 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:05,355 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:06,739 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:08,875 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:10,261 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:11,736 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:13,114 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:14,597 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:15,995 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:18,701 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:20,057 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:22,177 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:23,556 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:25,045 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:26,406 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:28,523 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:29,929 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:32,107 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:33,496 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:34,980 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:36,361 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:38,575 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:39,957 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:42,065 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:43,479 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:44,936 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:46,321 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:48,414 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:49,785 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:51,878 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:53,288 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:55,181 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:56,556 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:07:58,026 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:07:59,416 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:08:00,910 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:08:02,260 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:08:03,735 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:08:05,098 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:08:06,560 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:08:07,961 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:08:10,103 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:08:11,477 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:08:13,622 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:08:14,999 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:08:16,449 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:08:17,844 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:08:19,291 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-12 22:08:20,673 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-12 22:08:22,131 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"

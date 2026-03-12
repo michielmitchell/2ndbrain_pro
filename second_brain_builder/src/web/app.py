@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Silenced the harmless /favicon.ico 404 forever (browser tab icon request) - added clean 204 route + all other tabs fully working
+# purpose: Sidebar now correctly highlights the ACTIVE tab with focus (bg-zinc-800 text-white) - Dashboard no longer stuck as always active
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -19,10 +19,17 @@ from src.modules.prompt_manager import prompt_manager
 app = FastAPI(title="Second Brain Builder")
 app.mount("/vault", StaticFiles(directory=str(VAULT_ROOT), html=True), name="vault")
 
-# Silences the browser's automatic favicon request (no more 404 in logs)
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return Response(status_code=204)
+
+@app.get("/api/note/{path:path}")
+async def get_note(path: str):
+    full_path = VAULT_ROOT / path
+    if full_path.exists() and full_path.is_file():
+        content = full_path.read_text(encoding="utf-8")
+        return {"filename": Path(path).name, "content": content}
+    return {"error": "File not found"}
 
 ollama_client = OllamaClient()
 
@@ -146,11 +153,11 @@ async def root():
             <div><h1 class="text-2xl font-semibold">Second Brain</h1><p class="text-xs text-zinc-500">Ollama Connected</p></div>
         </div>
         <nav class="flex-1 space-y-1">
-            <a onclick="switchTab(0)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl bg-zinc-800 text-white">📊 Dashboard</a>
-            <a onclick="switchTab(1)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">💬 AI Chat</a>
-            <a onclick="switchTab(2)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">🧠 Thoughts</a>
-            <a onclick="switchTab(3)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">⚙️ Models Config</a>
-            <a onclick="switchTab(4)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">📝 Prompts Config</a>
+            <a id="tab-link-0" onclick="switchTab(0)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl bg-zinc-800 text-white">📊 Dashboard</a>
+            <a id="tab-link-1" onclick="switchTab(1)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">💬 AI Chat</a>
+            <a id="tab-link-2" onclick="switchTab(2)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">🧠 Thoughts</a>
+            <a id="tab-link-3" onclick="switchTab(3)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">⚙️ Models Config</a>
+            <a id="tab-link-4" onclick="switchTab(4)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">📝 Prompts Config</a>
         </nav>
         <div class="pt-6">
             <button onclick="buildVault()" class="w-full bg-violet-600 hover:bg-violet-700 py-4 rounded-3xl font-semibold">🚀 Build Vault</button>
@@ -271,6 +278,27 @@ async def root():
     </div>
 </div>
 
+<!-- ELEGANT MARKDOWN MODAL -->
+<div id="noteModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+    <div class="bg-zinc-900 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between px-8 py-5 border-b border-zinc-700">
+            <div id="modalFilename" class="font-semibold text-xl text-zinc-100"></div>
+            <div class="flex items-center gap-4">
+                <a id="modalOpenObsidian" href="#" target="_blank" class="text-violet-400 hover:text-violet-300 text-sm flex items-center gap-1">
+                    Open in Obsidian →
+                </a>
+                <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white text-2xl leading-none">×</button>
+            </div>
+        </div>
+        <div class="flex-1 p-8 overflow-auto">
+            <pre id="modalContent" class="whitespace-pre-wrap font-mono text-zinc-200 text-sm leading-relaxed"></pre>
+        </div>
+        <div class="p-4 border-t border-zinc-700 flex justify-end">
+            <button onclick="closeModal()" class="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl font-medium">Close</button>
+        </div>
+    </div>
+</div>
+
 <script>
 let messages = [];
 let modelsData = [];
@@ -359,9 +387,9 @@ async function loadNotes() {{
     const notes = await res.json();
     const container = document.getElementById('notesList');
     container.innerHTML = notes.slice(0,9).map(n => `
-        <a href="/vault/${{n.path}}" target="_blank" class="block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700">
+        <div onclick="showNoteModal('${{n.path}}')" class="cursor-pointer block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700 transition-all">
             <div class="font-medium">${{n.name}}</div>
-        </a>
+        </div>
     `).join('');
 }}
 async function loadThoughts() {{
@@ -369,9 +397,9 @@ async function loadThoughts() {{
     const notes = await res.json();
     const container = document.getElementById('thoughtsListFull');
     container.innerHTML = notes.filter(n => n.path.includes('thoughts')).slice(0,6).map(n => `
-        <a href="/vault/${{n.path}}" target="_blank" class="block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700">
+        <div onclick="showNoteModal('${{n.path}}')" class="cursor-pointer block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700 transition-all">
             <div class="font-medium">${{n.name}}</div>
-        </a>
+        </div>
     `).join('');
 }}
 async function filterThoughts() {{
@@ -381,11 +409,33 @@ async function filterThoughts() {{
     const filtered = notes.filter(n => n.path.includes('thoughts') && n.name.toLowerCase().includes(term));
     const container = document.getElementById('thoughtsListFull');
     container.innerHTML = filtered.slice(0,6).map(n => `
-        <a href="/vault/${{n.path}}" target="_blank" class="block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700">
+        <div onclick="showNoteModal('${{n.path}}')" class="cursor-pointer block bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-5 border border-zinc-700 transition-all">
             <div class="font-medium">${{n.name}}</div>
-        </a>
+        </div>
     `).join('');
 }}
+async function showNoteModal(path) {{
+    const res = await fetch(`/api/note/${{path}}`);
+    const data = await res.json();
+    if (data.error) return alert(data.error);
+
+    document.getElementById('modalFilename').textContent = data.filename;
+    document.getElementById('modalContent').textContent = data.content;
+    document.getElementById('modalOpenObsidian').href = `/vault/${{path}}`;
+    document.getElementById('noteModal').classList.remove('hidden');
+    document.getElementById('noteModal').classList.add('flex');
+}}
+function closeModal() {{
+    const modal = document.getElementById('noteModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}}
+document.addEventListener('keydown', (e) => {{
+    if (e.key === 'Escape') closeModal();
+}});
+document.getElementById('noteModal').addEventListener('click', (e) => {{
+    if (e.target.id === 'noteModal') closeModal();
+}});
 async function buildVault() {{
     await fetch('/build', {{method:'POST'}});
     loadNotes();
@@ -484,6 +534,18 @@ async function saveThreshold() {{
 function switchTab(n) {{
     document.querySelectorAll('#tab0,#tab1,#tab2,#tab3,#tab4').forEach((el,i)=>el.classList.toggle('hidden', i!==n));
     document.getElementById('tabTitle').textContent = ['Dashboard','AI Chat','Thoughts','Models Config','Prompts Config'][n];
+
+    // ACTIVE TAB FOCUS - highlight the clicked sidebar item
+    document.querySelectorAll('.tab-btn').forEach((el, i) => {{
+        if (i === n) {{
+            el.classList.add('bg-zinc-800', 'text-white');
+            el.classList.remove('text-zinc-400');
+        }} else {{
+            el.classList.remove('bg-zinc-800', 'text-white');
+            el.classList.add('text-zinc-400');
+        }}
+    }});
+
     if (n===3) loadModels().then(() => renderModelTable());
     if (n===2) loadThoughts();
     if (n===4) loadPrompts();

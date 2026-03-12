@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - favicon.ico 404 silenced forever (no more log spam)
+# purpose: One-click runner - sidebar now properly highlights the ACTIVE tab (Dashboard no longer permanently focused)
 
 #!/bin/bash
 set -e
@@ -14,6 +14,6 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== favicon.ico 404 silenced forever ==="
-echo "No more 404 for the browser tab icon request"
+echo "=== Sidebar active tab FIXED ==="
+echo "The currently selected tab now has proper focus highlight"
 "$VENV_DIR/bin/python" main.py "$@"

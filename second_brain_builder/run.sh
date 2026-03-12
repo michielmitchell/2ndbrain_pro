@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - re import fixed, category totals now correct
+# purpose: One-click runner - checkboxes kept, bulk bar removed, SyntaxWarning fixed
 
 #!/bin/bash
 set -e
@@ -14,8 +14,8 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== RE IMPORT FIXED + TOTALS CORRECT ==="
-echo "• All category cards now show real live counts"
-echo "• Avg Confidence updates instantly"
-echo "• NameError resolved"
+echo "=== CHECKBOXES KEPT — NO BULK BAR — WARNINGS FIXED ==="
+echo "• Left column checkboxes + Select All header"
+echo "• No pop-up bar = zero screen jump"
+echo "• All regex escapes corrected"
 "$VENV_DIR/bin/python" main.py "$@"

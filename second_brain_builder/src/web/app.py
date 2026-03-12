@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Fixed NameError re not defined - import re moved to top + robust stats with live totals
+# purpose: Checkboxes kept + Select All header. Bulk delete bar removed (no screen jump). All regex escapes fixed (no more SyntaxWarning).
 
 import re
 from fastapi import FastAPI, Body
@@ -267,7 +267,7 @@ async def root():
                 </div>
             </div>
 
-            <!-- Sortable Table -->
+            <!-- Clean table with checkboxes (no bulk bar) -->
             <div class="bg-zinc-900 rounded-3xl overflow-hidden">
                 <div class="px-8 py-5 border-b border-zinc-700 flex justify-between items-center">
                     <h3 id="tableTitle" class="text-lg font-semibold">All Thoughts</h3>
@@ -276,6 +276,7 @@ async def root():
                 <table class="w-full">
                     <thead>
                         <tr class="bg-zinc-800 text-zinc-400 text-sm">
+                            <th class="p-4 w-10"><input type="checkbox" id="selectAllHeader" class="accent-violet-500 w-5 h-5" onclick="toggleSelectAll()"></th>
                             <th onclick="sortTable(0)" class="p-4 text-left cursor-pointer hover:text-white">Filename <span id="sort0">↕</span></th>
                             <th onclick="sortTable(1)" class="p-4 text-left cursor-pointer hover:text-white">Category <span id="sort1">↕</span></th>
                             <th onclick="sortTable(2)" class="p-4 text-left cursor-pointer hover:text-white">Confidence <span id="sort2">↕</span></th>
@@ -446,9 +447,10 @@ async function renderTable() {{
         const cat = catMatch ? catMatch[1].charAt(0).toUpperCase() + catMatch[1].slice(1) : 'Review';
         const confMatch = n.name.match(/-([0-9.]+)-\\d{{8}}\\.md$/);
         const conf = confMatch ? confMatch[1] : '0.65';
-        const dateMatch = n.name.match(/(\\d{{8}})\\\.md$/);
+        const dateMatch = n.name.match(/(\\d{{8}})\\.md$/);
         const date = dateMatch ? dateMatch[1] : '';
         html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800 cursor-pointer" onclick="showNoteModal('${{n.path}}')">
+            <td class="p-4"><input type="checkbox" class="row-checkbox accent-violet-500 w-5 h-5"></td>
             <td class="p-4 font-medium">${{n.name}}</td>
             <td class="p-4">${{cat}}</td>
             <td class="p-4 text-emerald-400 font-mono">${{conf}}</td>
@@ -461,6 +463,13 @@ async function renderTable() {{
 
     document.getElementById('thoughtsTableBody').innerHTML = html;
     document.getElementById('filteredCount').textContent = `${{notes.length}} thoughts`;
+}}
+
+function toggleSelectAll() {{
+    const checked = document.getElementById('selectAllHeader').checked;
+    document.querySelectorAll('.row-checkbox').forEach(chk => {{
+        chk.checked = checked;
+    }});
 }}
 
 async function deleteNote(path) {{

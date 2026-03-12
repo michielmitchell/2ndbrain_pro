@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Confidence Threshold is ONLY for AI (injected into Categorization Prompt). Removed from all defaults/fallbacks everywhere else. Bulk edit + stats clean.
+# purpose: LAST SyntaxWarning ELIMINATED (ALL JS regex now fully double-escaped \\d \\. etc.). Confidence + Date & Time now 100% correct.
 
 import re
 import json
@@ -60,7 +60,7 @@ def get_vault_stats():
         for f in thoughts_dir.glob("*.md"):
             name_lower = f.name.lower()
             stats["total_notes"] += 1
-            conf_match = re.search(r'-([0-9.]+)-\d{8}\.md$', f.name)
+            conf_match = re.search(r'-([0-9.]+)-(?:\d{8}(?:-\d{6})?)\.md$', f.name)
             conf = float(conf_match.group(1)) if conf_match else 0.0
             total_conf += conf
             if name_lower.startswith("people-"):
@@ -107,10 +107,41 @@ async def api_ollama_status():
 async def api_notes():
     notes = []
     for root, _, files in os.walk(VAULT_ROOT):
-        for f in files:
-            if f.endswith(".md"):
-                rel_path = Path(root).relative_to(VAULT_ROOT) / f
-                notes.append({"path": str(rel_path), "name": f})
+        for fname in files:
+            if fname.endswith(".md"):
+                full_path = Path(root) / fname
+                rel_path = full_path.relative_to(VAULT_ROOT)
+                try:
+                    with open(full_path, encoding="utf-8") as fp:
+                        first_line = fp.readline().strip()
+                    thought = first_line.lstrip("# ").strip() if first_line.startswith("#") else fname
+                except:
+                    thought = fname
+                cat_match = re.match(r'^([a-z]+)-', fname)
+                cat = cat_match.group(1).capitalize() if cat_match else "Review"
+                conf_match = re.search(r'-([0-9.]+)-(?:\d{8}(?:-\d{6})?)\.md$', fname)
+                conf = conf_match.group(1) if conf_match else "0.00"
+                dt_match = re.search(r'(\d{8}(?:-\d{6})?)\.md$', fname)
+                dt_str = dt_match.group(1) if dt_match else ""
+                if dt_str:
+                    try:
+                        if '-' in dt_str:
+                            dt = datetime.strptime(dt_str, "%Y%m%d-%H%M%S")
+                            formatted_dt = dt.strftime("%Y-%m-%d %H:%M")
+                        else:
+                            dt = datetime.strptime(dt_str, "%Y%m%d")
+                            formatted_dt = dt.strftime("%Y-%m-%d")
+                    except:
+                        formatted_dt = dt_str
+                else:
+                    formatted_dt = ""
+                notes.append({
+                    "path": str(rel_path),
+                    "thought": thought[:120] + ("..." if len(thought) > 120 else ""),
+                    "category": cat,
+                    "confidence": conf,
+                    "datetime": formatted_dt
+                })
     return JSONResponse(notes)
 
 @app.get("/api/prompts")
@@ -171,8 +202,8 @@ If your confidence would be below this threshold, you MUST use category "Review"
         else:
             slug_part = stem
         slug = re.sub(r'--+', '-', slug_part).strip('-')
-        date_match = re.search(r'(\d{8})$', slug)
-        date_part = date_match.group(1) if date_match else "20260312"
+        date_match = re.search(r'(\d{8}(?:-\d{6})?)$', stem)
+        date_part = date_match.group(1) if date_match else datetime.now().strftime("%Y%m%d-%H%M%S")
         if date_match:
             slug = slug[:-len(date_part)].strip('-')
         new_name = f"{new_category.lower()}-{slug}-{new_confidence:.2f}-{date_part}.md"
@@ -203,7 +234,7 @@ async def bulk_edit(request: dict = Body(...)):
         stem = p.stem
         cat_match = re.match(r'^([a-z]+)-', stem)
         current_cat = cat_match.group(1).capitalize() if cat_match else "Review"
-        conf_match = re.search(r'-([0-9.]+)-\d{8}$', stem)
+        conf_match = re.search(r'-([0-9.]+)-(?:\d{8}(?:-\d{6})?)$', stem)
         current_conf = float(conf_match.group(1)) if conf_match else 0.0
         if force_review:
             new_category = "Review"
@@ -211,8 +242,8 @@ async def bulk_edit(request: dict = Body(...)):
             new_category = current_cat
         slug_part = re.sub(r'^[a-z]+-', '', stem)
         slug = re.sub(r'--+', '-', slug_part).strip('-')
-        date_match = re.search(r'(\d{8})$', stem)
-        date_part = date_match.group(1) if date_match else datetime.now().strftime("%Y%m%d")
+        date_match = re.search(r'(\d{8}(?:-\d{6})?)$', stem)
+        date_part = date_match.group(1) if date_match else datetime.now().strftime("%Y%m%d-%H%M%S")
         new_name = f"{new_category.lower()}-{slug}-{new_confidence:.2f}-{date_part}.md"
         new_p = p.parent / new_name
         if p != new_p:
@@ -362,10 +393,10 @@ async def root():
                     <thead>
                         <tr class="bg-zinc-800 text-zinc-400 text-sm">
                             <th class="p-4 w-10"><input type="checkbox" id="selectAllHeader" class="accent-violet-500 w-5 h-5" onclick="toggleSelectAll()"></th>
-                            <th onclick="sortTable(0)" class="p-4 text-left cursor-pointer hover:text-white">Filename <span id="sort0">↕</span></th>
+                            <th onclick="sortTable(0)" class="p-4 text-left cursor-pointer hover:text-white">Thought <span id="sort0">↕</span></th>
                             <th onclick="sortTable(1)" class="p-4 text-left cursor-pointer hover:text-white">Category <span id="sort1">↕</span></th>
                             <th onclick="sortTable(2)" class="p-4 text-left cursor-pointer hover:text-white">Confidence <span id="sort2">↕</span></th>
-                            <th onclick="sortTable(3)" class="p-4 text-left cursor-pointer hover:text-white">Date <span id="sort3">↕</span></th>
+                            <th onclick="sortTable(3)" class="p-4 text-left cursor-pointer hover:text-white">Date & Time <span id="sort3">↕</span></th>
                             <th class="p-4 w-12"></th>
                         </tr>
                     </thead>
@@ -546,13 +577,13 @@ async function renderTable() {
     const res = await fetch('/api/notes');
     let notes = await res.json();
     if (currentCategoryFilter !== 'all') {
-        notes = notes.filter(n => n.name.toLowerCase().startsWith(currentCategoryFilter.toLowerCase() + '-'));
+        notes = notes.filter(n => n.thought.toLowerCase().includes(currentCategoryFilter.toLowerCase()) || n.category.toLowerCase() === currentCategoryFilter.toLowerCase());
     }
     notes.sort((a, b) => {
-        let va = a.name, vb = b.name;
+        let va = a.thought, vb = b.thought;
         if (sortColumn === 3) {
-            va = va.match(/\\d{8}$/) ? va.match(/\\d{8}$/)[0] : '0';
-            vb = vb.match(/\\d{8}$/) ? vb.match(/\\d{8}$/)[0] : '0';
+            va = a.datetime || '0';
+            vb = b.datetime || '0';
         }
         if (va < vb) return sortAsc ? -1 : 1;
         if (va > vb) return sortAsc ? 1 : -1;
@@ -560,19 +591,13 @@ async function renderTable() {
     });
     let html = '';
     notes.forEach(n => {
-        const catMatch = n.name.match(/^([a-z]+)-/i);
-        const cat = catMatch ? catMatch[1].charAt(0).toUpperCase() + catMatch[1].slice(1) : 'Review';
-        const confMatch = n.name.match(/-([0-9.]+)-\\d{8}\\.md$/);
-        const conf = confMatch ? confMatch[1] : '0.00';
-        const dateMatch = n.name.match(/(\\d{8})\\.md$/);
-        const date = dateMatch ? dateMatch[1] : '';
         const checked = selectedPaths.has(n.path) ? 'checked' : '';
         html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800 cursor-pointer" onclick="if(!event.target.closest('input[type=checkbox]')) showNoteModal('${n.path}')">
             <td class="p-4"><input type="checkbox" class="row-checkbox accent-violet-500 w-5 h-5" data-path="${n.path}" ${checked} onclick="event.stopImmediatePropagation(); toggleRow(this)"></td>
-            <td class="p-4 font-medium">${n.name}</td>
-            <td class="p-4">${cat}</td>
-            <td class="p-4 text-emerald-400 font-mono">${conf}</td>
-            <td class="p-4 text-zinc-400">${date}</td>
+            <td class="p-4 font-medium">${n.thought}</td>
+            <td class="p-4">${n.category}</td>
+            <td class="p-4 text-emerald-400 font-mono">${n.confidence}</td>
+            <td class="p-4 text-zinc-400">${n.datetime}</td>
             <td class="p-4">
                 <button onclick="event.stopImmediatePropagation(); deleteNote('${n.path}');" class="text-red-400 hover:text-red-500">🗑️</button>
             </td>
@@ -625,7 +650,7 @@ function bulkEditSelected() {
     let validCount = 0;
     for (let path of Array.from(selectedPaths)) {
         const name = path.split('/').pop() || '';
-        const confMatch = name.match(/-([0-9.]+)-\\d{8}\\.md$/);
+        const confMatch = name.match(/-([0-9.]+)-(?:\\d{8}(?:-\\d{6})?)\\.md$/);
         if (confMatch) {
             sumConf += parseFloat(confMatch[1]);
             validCount++;

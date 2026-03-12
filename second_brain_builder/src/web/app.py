@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Drop a new thought now even tighter (exact screenshot match: title + Save button same top row, textarea directly below left, reply right). Minimal vertical height so table shows many more lines.
+# purpose: Prompts Config tab (#tab3) now starts with 'hidden' class (fixes flash-of-content bug on fresh load). No more prompts section appearing at bottom of Dashboard.
 
 import re
 import json
@@ -166,14 +166,6 @@ async def api_save_threshold(request: dict = Body(...)):
     prompt_manager.save_threshold(value)
     return {"status": "saved"}
 
-@app.post("/build")
-async def build_vault():
-    setup_all_folders()
-    process_youtube_links()
-    process_report()
-    create_obsidian_structure()
-    return {"status": "success"}
-
 @app.post("/api/enhance_note")
 async def enhance_note(request: dict = Body(...)):
     path = request.get("path")
@@ -280,6 +272,7 @@ async def root():
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
         body { font-family: 'Inter', system-ui; }
+        input[type="range"][orient="vertical"] { writing-mode: bt-lr; appearance: slider-vertical; }
     </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100">
@@ -297,8 +290,7 @@ async def root():
             <a id="tab-link-3" onclick="switchTab(3)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-zinc-800 text-zinc-400">📝 Prompts Config</a>
         </nav>
         <div class="pt-6">
-            <button onclick="buildVault()" class="w-full bg-violet-600 hover:bg-violet-700 py-4 rounded-3xl font-semibold">🚀 Build Vault</button>
-            <button onclick="enhanceWithAI()" class="mt-3 w-full border border-violet-500 text-violet-400 hover:bg-violet-950 py-3 rounded-3xl">✨ Enhance with Ollama</button>
+            <button onclick="enhanceWithAI()" class="w-full border border-violet-500 text-violet-400 hover:bg-violet-950 py-3 rounded-3xl">✨ Enhance with Ollama</button>
         </div>
     </div>
 
@@ -311,9 +303,7 @@ async def root():
 
         <!-- Dashboard -->
         <div id="tab0" class="flex-1 p-8 overflow-auto">
-            <!-- EVEN TIGHTER DROP THOUGHT SECTION (exact screenshot) -->
             <div class="bg-zinc-900 rounded-3xl p-4 mb-8 flex gap-6">
-                <!-- Left: title row + textarea -->
                 <div class="flex-1 flex flex-col">
                     <div class="flex items-center justify-between mb-3">
                         <div class="text-lg font-semibold">Drop a new thought</div>
@@ -324,8 +314,6 @@ async def root():
                     </div>
                     <textarea id="thoughtInput" class="flex-1 bg-zinc-800 text-zinc-300 rounded-2xl p-4 focus:outline-none focus:border-violet-500 resize-none h-36" placeholder="Type or paste your thought here..."></textarea>
                 </div>
-
-                <!-- Right: Reply Box -->
                 <div class="flex-1 bg-blue-900/30 rounded-3xl p-6 flex flex-col">
                     <div class="flex items-center gap-2 mb-3">
                         <span class="text-xl">🤖</span>
@@ -336,8 +324,6 @@ async def root():
                     </div>
                 </div>
             </div>
-
-            <!-- Category Cards -->
             <div class="grid grid-cols-6 gap-6 mb-8">
                 <div onclick="setCategoryFilter('all')" id="card-all" class="category-card bg-zinc-900 hover:bg-zinc-800 rounded-3xl p-6 cursor-pointer border-2 border-violet-500">
                     <div class="text-sm text-zinc-500">Total Thoughts</div>
@@ -382,8 +368,6 @@ async def root():
                     </div>
                 </div>
             </div>
-
-            <!-- Table with bulk buttons in header -->
             <div class="bg-zinc-900 rounded-3xl overflow-hidden">
                 <div class="px-8 py-5 border-b border-zinc-700 flex items-center justify-between">
                     <h3 id="tableTitle" class="text-lg font-semibold">All Thoughts</h3>
@@ -444,39 +428,45 @@ async def root():
             </div>
         </div>
 
-        <!-- Prompts Config Tab — CLEANED -->
-        <div id="tab3" class="flex-1 p-6 overflow-hidden">
-            <div class="space-y-6 h-full flex flex-col">
-                <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
-                    <h3 class="font-semibold text-lg mb-3">Categorization Prompt <span class="text-xs text-emerald-400">(used by both new thoughts AND AI Review)</span></h3>
-                    <textarea id="categorizationPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
-                    <div class="flex gap-3 mt-4">
-                        <button onclick="saveCategorizationPrompt()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
-                            💾 Save Categorization Prompt
-                        </button>
-                        <button onclick="resetCategorizationPrompt()" class="px-6 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 py-3 rounded-xl font-medium flex items-center gap-2">
-                            🔄 Reset
-                        </button>
+        <!-- Prompts Config Tab — THRESHOLD NOW VERTICAL ON LEFT -->
+        <div id="tab3" class="flex-1 p-6 overflow-hidden hidden">
+            <div class="flex gap-6 h-full">
+                <!-- LEFT: Vertical AI Review Threshold -->
+                <div class="w-56 bg-zinc-900 rounded-3xl p-6 flex flex-col items-center">
+                    <h3 class="font-semibold text-lg text-center mb-4">AI Review Threshold</h3>
+                    <div class="flex flex-col items-center flex-1">
+                        <input type="range" id="thresholdSlider" orient="vertical" min="0.60" max="1.00" step="0.01" value="0.65" class="accent-violet-500 h-72" oninput="updateThresholdValue()">
+                        <div class="mt-6 text-4xl font-mono text-violet-300" id="thresholdValue">0.65</div>
                     </div>
+                    <button onclick="saveThreshold()" class="mt-4 w-full bg-violet-600 hover:bg-violet-700 text-white py-3 rounded-2xl font-semibold">Save Threshold</button>
+                    <div class="text-xs text-emerald-400 text-center mt-3">tells AI when to force Review bucket</div>
                 </div>
-                <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
-                    <h3 class="font-semibold text-lg mb-3">Search Prompt</h3>
-                    <textarea id="searchPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
-                    <div class="flex gap-3 mt-4">
-                        <button onclick="saveSearchPrompt()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
-                            💾 Save Search Prompt
-                        </button>
-                        <button onclick="resetSearchPrompt()" class="px-6 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 py-3 rounded-xl font-medium flex items-center gap-2">
-                            🔄 Reset Search Prompt
-                        </button>
+
+                <!-- RIGHT: Two prompt boxes stacked -->
+                <div class="flex-1 flex flex-col gap-6">
+                    <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
+                        <h3 class="font-semibold text-lg mb-3">Categorization Prompt <span class="text-xs text-emerald-400">(used by both new thoughts AND AI Review)</span></h3>
+                        <textarea id="categorizationPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
+                        <div class="flex gap-3 mt-4">
+                            <button onclick="saveCategorizationPrompt()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                                💾 Save Categorization Prompt
+                            </button>
+                            <button onclick="resetCategorizationPrompt()" class="px-6 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 py-3 rounded-xl font-medium flex items-center gap-2">
+                                🔄 Reset
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div class="bg-zinc-900 rounded-3xl p-5">
-                    <h3 class="font-semibold text-lg mb-3">AI Review Threshold <span class="text-xs text-emerald-400">(tells AI when to force Review bucket)</span></h3>
-                    <div class="flex items-center gap-6">
-                        <input type="range" id="thresholdSlider" min="0.60" max="1.00" step="0.01" value="0.65" class="flex-1 accent-violet-500" oninput="updateThresholdValue()">
-                        <span id="thresholdValue" class="font-mono text-lg w-12 text-right">0.65</span>
-                        <button onclick="saveThreshold()" class="bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 rounded-xl font-semibold">Save Threshold</button>
+                    <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
+                        <h3 class="font-semibold text-lg mb-3">Search Prompt</h3>
+                        <textarea id="searchPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
+                        <div class="flex gap-3 mt-4">
+                            <button onclick="saveSearchPrompt()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                                💾 Save Search Prompt
+                            </button>
+                            <button onclick="resetSearchPrompt()" class="px-6 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 py-3 rounded-xl font-medium flex items-center gap-2">
+                                🔄 Reset Search Prompt
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -867,11 +857,6 @@ document.addEventListener('keydown', (e) => {
 document.getElementById('noteModal').addEventListener('click', (e) => {
     if (e.target.id === 'noteModal') closeModal();
 });
-async function buildVault() {
-    await fetch('/build', {method:'POST'});
-    renderTable();
-    refreshStats();
-}
 async function enhanceWithAI() {
     await fetch('/api/enhance', {method:'POST'});
     alert('All notes enhanced with Ollama summaries!');

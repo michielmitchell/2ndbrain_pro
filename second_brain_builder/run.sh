@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner — Drop a new thought now ultra-tight (exact latest screenshot)
+# purpose: One-click runner — Prompts Config flash fixed (tab3 now starts hidden)
 
 #!/bin/bash
 set -e
@@ -14,9 +14,7 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== DROP NEW THOUGHT NOW ULTRA-TIGHT (exact latest screenshot) ==="
-echo "• Title + Save button on same top row"
-echo "• Textarea directly below (much shorter)"
-echo "• Reply box right"
-echo "• Table now shows many more rows"
+echo "=== PROMPTS CONFIG FLASH FIXED ==="
+echo "• #tab3 now starts with hidden class"
+echo "• No more prompts section appearing at bottom of Dashboard on fresh load"
 "$VENV_DIR/bin/python" main.py "$@"

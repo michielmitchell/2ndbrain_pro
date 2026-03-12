@@ -1,12 +1,12 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: FastAPI with Tailwind GUI + Models Config tab - FIXED NameError by importing DEFAULT_OLLAMA_MODEL + uses Primary model from SQLite for chat
+# purpose: Models Config tab - now shows your real model names + auto-sort Primary>>FB1>>FB2>>FB3 after every change
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import os
-from src.config import VAULT_ROOT, DEFAULT_PORT, DEFAULT_OLLAMA_MODEL
+from src.config import VAULT_ROOT, DEFAULT_PORT, OLLAMA_HOST
 from src.utils.folder_setup import setup_all_folders
 from src.modules.video_processor import process_youtube_links
 from src.modules.document_processor import process_report
@@ -46,6 +46,11 @@ async def save_model_config(data: dict = Body(...)):
     model_manager.save_assignment(data)
     return {"status": "saved"}
 
+@app.get("/api/ollama_status")
+async def api_ollama_status():
+    models = model_manager.get_models()
+    return {"host": OLLAMA_HOST, "connected": len(models) > 0, "models_count": len(models)}
+
 @app.get("/api/notes")
 async def api_notes():
     notes = []
@@ -82,7 +87,7 @@ async def enhance_all():
 async def chat(request: dict = Body(...)):
     msg = request.get("message", "")
     assignment = model_manager.get_assignment()
-    model = request.get("model") or assignment.get("primary") or DEFAULT_OLLAMA_MODEL
+    model = request.get("model") or assignment.get("primary")
     reply = ollama_client.chat_with_vault(msg, model)
     return {"reply": reply}
 
@@ -154,34 +159,70 @@ async def root():
 
         <!-- Models Configuration Tab -->
         <div id="tab3" class="flex-1 p-8 overflow-auto hidden">
+            <div id="ollamaStatus" class="mb-6 p-4 bg-zinc-800 rounded-3xl flex items-center gap-3 text-sm"></div>
             <div class="bg-zinc-900 rounded-3xl p-6">
-                <h3 class="font-semibold text-lg mb-6">Chat Models Assignment</h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-semibold text-lg">Chat Models Assignment</h3>
+                    <button onclick="refreshModels()" class="px-6 py-2 bg-violet-600 hover:bg-violet-700 rounded-2xl text-sm font-medium">🔄 Refresh from Ollama</button>
+                </div>
                 <div id="modelTable" class="overflow-x-auto"></div>
-                <div class="mt-6 text-xs text-zinc-400">Auto-saved to SQLite • Changes auto-sort Primary → FB1 → FB2 → FB3</div>
+                <div id="emptyState" class="hidden mt-8 text-center py-12">
+                    <div class="text-6xl mb-4">🤖</div>
+                    <p class="text-xl font-medium mb-2">No models found</p>
+                </div>
+                <div class="mt-6 text-xs text-zinc-400">Auto-sorted Primary → FB1 → FB2 → FB3 • Real names from Ollama</div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-let currentModel = "{DEFAULT_OLLAMA_MODEL}";
 let messages = [];
 let modelsData = [];
 
 async function loadModels() {{
     const res = await fetch('/api/models');
     modelsData = await res.json();
-    renderModelTable();
 }}
 async function loadModelConfig() {{
     const res = await fetch('/api/model_config');
     return await res.json();
 }}
-async function saveModelConfig(assignment) {{
-    await fetch('/api/model_config', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify(assignment)}});
+async function loadOllamaStatus() {{
+    const res = await fetch('/api/ollama_status');
+    return await res.json();
 }}
 async function renderModelTable() {{
-    const assignment = await loadModelConfig();
+    const status = await loadOllamaStatus();
+    let assignment = await loadModelConfig();
+
+    const statusEl = document.getElementById('ollamaStatus');
+    statusEl.innerHTML = `
+        <span class="px-3 py-1 rounded-full text-xs font-medium ${{status.connected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}}">
+            ${{status.connected ? '✅ Connected' : '❌ Not reachable'}}
+        </span>
+        <span class="font-mono text-xs">Host: ${{status.host}} • ${{status.models_count}} models loaded</span>
+    `;
+
+    if (modelsData.length === 0) {{
+        document.getElementById('modelTable').classList.add('hidden');
+        document.getElementById('emptyState').classList.remove('hidden');
+        return;
+    }}
+    document.getElementById('modelTable').classList.remove('hidden');
+    document.getElementById('emptyState').classList.add('hidden');
+
+    // AUTO-SORT: Primary first, then fallbacks, then rest
+    const priority = [assignment.primary, assignment.fallback1, assignment.fallback2, assignment.fallback3];
+    modelsData.sort((a, b) => {{
+        const pa = priority.indexOf(a.name);
+        const pb = priority.indexOf(b.name);
+        if (pa === -1 && pb === -1) return 0;
+        if (pa === -1) return 1;
+        if (pb === -1) return -1;
+        return pa - pb;
+    }});
+
     let html = `
         <table class="w-full border-collapse text-sm">
             <thead><tr class="bg-zinc-800 text-zinc-400">
@@ -206,13 +247,24 @@ async function renderModelTable() {{
     document.getElementById('modelTable').innerHTML = html;
 }}
 async function updateAssignment(el) {{
-    const assignment = {{}};
+    let assignment = {{}};
     ['primary','fallback1','fallback2','fallback3'].forEach(role => {{
         const checked = document.querySelector(`input[name="${{role}}"]:checked`);
         assignment[role] = checked ? checked.value : '';
     }});
-    await saveModelConfig(assignment);
-    renderModelTable();
+    // Prevent duplicates
+    const selected = el.value;
+    if (el.name === 'primary') {{
+        ['fallback1','fallback2','fallback3'].forEach(r => {{
+            if (assignment[r] === selected) assignment[r] = '';
+        }});
+    }}
+    await fetch('/api/model_config', {{method:'POST', headers:{{"Content-Type":"application/json"}}, body:JSON.stringify(assignment)}});
+    await renderModelTable();
+}}
+async function refreshModels() {{
+    await loadModels();
+    await renderModelTable();
 }}
 async function loadNotes() {{
     const res = await fetch('/api/notes');
@@ -258,11 +310,12 @@ function renderChat() {{
 function switchTab(n) {{
     document.querySelectorAll('#tab0,#tab1,#tab2,#tab3').forEach((el,i)=>el.classList.toggle('hidden', i!==n));
     document.getElementById('tabTitle').textContent = ['Dashboard','AI Chat','Notes','Models Config'][n];
-    if (n===3) renderModelTable();
+    if (n===3) {{
+        loadModels().then(() => renderModelTable());
+    }}
 }}
 function filterNotes() {{}}
 window.onload = () => {{
-    loadModels();
     loadNotes();
     switchTab(0);
 }}

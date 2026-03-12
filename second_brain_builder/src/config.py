@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/config.py
-# purpose: Central config with all paths and constants - added DB_PATH for SQLite + OLLAMA_HOST env support for custom instances like 192.168.3.237
+# purpose: Central config - OLLAMA_HOST now defaults to YOUR actual server IP (192.168.3.237) so models populate immediately
 
 from pathlib import Path
 import os
@@ -11,8 +11,8 @@ LOG_DIR = PROJECT_ROOT / "logs"
 
 DEFAULT_PORT = 8000
 
-# Ollama connection (supports custom IP like screenshot)
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+# YOUR OLLAMA SERVER (from your screenshot) - now default so table always loads your models
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://192.168.3.237:11434")
 DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 # SQLite persistence for model assignment

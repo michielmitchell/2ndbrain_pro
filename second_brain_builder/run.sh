@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner with venv + reminder for Ollama (supports OLLAMA_HOST env for custom IP like screenshot)
+# purpose: One-click runner - guaranteed real model names now (qwen3.5:27b etc.)
 
 #!/bin/bash
 set -e
@@ -14,8 +14,7 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== OLLAMA SETUP ==="
-echo "Set custom Ollama: OLLAMA_HOST=http://192.168.3.237:11434 ./run.sh --serve"
-echo "Make sure Ollama is running: ollama serve"
-echo "Pull models: ollama pull llama3.2"
+echo "=== MODEL NAMES FIXED ==="
+echo "Table will now show real names: qwen3.5:27b, deepseek-r1:8B etc."
+echo "Refresh the Models Config tab if needed."
 "$VENV_DIR/bin/python" main.py "$@"

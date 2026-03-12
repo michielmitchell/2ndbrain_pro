@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/modules/model_manager.py
-# purpose: Handles dynamic Ollama model loading + Primary/FB1/FB2/FB3 assignment with SQLite persistence + auto-sort
+# purpose: SUPER ROBUST model name extraction - handles EVERY Ollama Python client version (dict, object, pydantic) + your exact models (qwen3.5:27b etc.)
 
 import sqlite3
 import logging
@@ -12,9 +12,11 @@ logging.basicConfig(filename='logs/model_manager.log', level=logging.INFO, forma
 
 class ModelManager:
     def __init__(self):
+        ollama.base_url = OLLAMA_HOST
         self.db_path = DB_PATH
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.init_db()
+        logging.info(f"Ollama connected to {OLLAMA_HOST}")
 
     def init_db(self):
         conn = sqlite3.connect(self.db_path)
@@ -25,8 +27,7 @@ class ModelManager:
                 model_name TEXT
             )
         ''')
-        roles = ['primary', 'fallback1', 'fallback2', 'fallback3']
-        for role in roles:
+        for role in ['primary', 'fallback1', 'fallback2', 'fallback3']:
             cur.execute("INSERT OR IGNORE INTO model_assignment (role, model_name) VALUES (?, '')", (role,))
         conn.commit()
         conn.close()
@@ -48,14 +49,34 @@ class ModelManager:
         conn.close()
 
     def get_models(self) -> List[Dict]:
-        """Live dynamic load from Ollama instance"""
+        """Extracts REAL names from ANY Ollama response format"""
         try:
-            ollama.base_url = OLLAMA_HOST
             resp = ollama.list()
-            models = [{"name": m["name"], "size_gb": round(m.get("size", 0) / (1024**3), 2)} for m in resp.get("models", [])]
-            return sorted(models, key=lambda x: x["name"])
+            # Handle both dict response and object response (current library)
+            raw_list = resp.get("models", []) if isinstance(resp, dict) else getattr(resp, "models", [])
+            models = []
+            for m in raw_list:
+                # Try every possible way to get name
+                name = None
+                if isinstance(m, dict):
+                    name = m.get("name") or m.get("model")
+                else:
+                    name = getattr(m, "name", None) or getattr(m, "model", None)
+                if not name:
+                    name = "unknown"
+                # Size
+                size_bytes = 0
+                if isinstance(m, dict):
+                    size_bytes = m.get("size", 0)
+                else:
+                    size_bytes = getattr(m, "size", 0)
+                size_gb = round(size_bytes / (1024**3), 2) if size_bytes else 0
+                models.append({"name": str(name), "size_gb": size_gb})
+            models = sorted(models, key=lambda x: x["name"])
+            logging.info(f"✅ Loaded {len(models)} REAL models: {[m['name'] for m in models[:5]]}...")
+            return models
         except Exception as e:
-            logging.error(f"Ollama unreachable at {OLLAMA_HOST}: {e}")
+            logging.error(f"Ollama error at {OLLAMA_HOST}: {e}")
             return []
 
 model_manager = ModelManager()

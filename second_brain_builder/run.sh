@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - fixed syntax error + live metadata
+# purpose: One-click runner - Delete Note button added in modal
 
 #!/bin/bash
 set -e
@@ -14,6 +14,8 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== LIVE METADATA FIXED + SyntaxError resolved ==="
-echo "All stats now update instantly after save"
+echo "=== DELETE NOTE BUTTON ADDED ==="
+echo "In the modal viewer (click any .md):"
+echo "• Red 🗑️ Delete Note button (with confirmation)"
+echo "• Instantly refreshes stats + list after delete"
 "$VENV_DIR/bin/python" main.py "$@"

@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Fixed Python SyntaxError in embedded JS + all metadata (Total Thoughts + stats + recent list) updates LIVE after save
+# purpose: Added Delete Note button in modal (with confirmation) that permanently deletes the .md file and instantly refreshes stats + list
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -29,6 +29,14 @@ async def get_note(path: str):
     if full_path.exists() and full_path.is_file():
         content = full_path.read_text(encoding="utf-8")
         return {"filename": Path(path).name, "content": content}
+    return {"error": "File not found"}
+
+@app.delete("/api/note/{path:path}")
+async def delete_note(path: str):
+    full_path = VAULT_ROOT / path
+    if full_path.exists() and full_path.is_file():
+        full_path.unlink()
+        return {"status": "deleted"}
     return {"error": "File not found"}
 
 @app.get("/api/stats")
@@ -174,9 +182,8 @@ async def root():
             <span id="status" class="px-4 py-1 text-xs bg-emerald-500/10 text-emerald-400 rounded-full">Ollama Ready</span>
         </div>
 
-        <!-- Dashboard (live stats + thought capture + recent) -->
+        <!-- Dashboard -->
         <div id="tab0" class="flex-1 p-8 overflow-auto">
-            <!-- Drop a thought -->
             <div class="bg-zinc-900 rounded-3xl p-6 mb-8">
                 <div class="text-lg font-semibold mb-3">Drop a new thought</div>
                 <textarea id="thoughtInput" class="w-full h-32 bg-zinc-800 text-zinc-300 rounded-xl p-4 focus:outline-none focus:border-violet-500 resize-none" placeholder="Type or paste your thought here..."></textarea>
@@ -189,7 +196,6 @@ async def root():
                 </div>
             </div>
 
-            <!-- Live Stats -->
             <div class="grid grid-cols-4 gap-6">
                 <div class="bg-zinc-900 rounded-3xl p-6">
                     <div class="text-sm text-zinc-500">Total Thoughts</div>
@@ -209,7 +215,6 @@ async def root():
                 </div>
             </div>
 
-            <!-- Recent notes -->
             <div id="notesList" class="mt-10 grid grid-cols-3 gap-4"></div>
         </div>
 
@@ -279,7 +284,7 @@ async def root():
     </div>
 </div>
 
-<!-- ELEGANT MARKDOWN MODAL -->
+<!-- MODAL WITH DELETE BUTTON -->
 <div id="noteModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
     <div class="bg-zinc-900 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between px-8 py-5 border-b border-zinc-700">
@@ -294,7 +299,10 @@ async def root():
         <div class="flex-1 p-8 overflow-auto">
             <pre id="modalContent" class="whitespace-pre-wrap font-mono text-zinc-200 text-sm leading-relaxed"></pre>
         </div>
-        <div class="p-4 border-t border-zinc-700 flex justify-end">
+        <div class="p-4 border-t border-zinc-700 flex justify-between">
+            <button onclick="deleteCurrentNote()" class="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-medium flex items-center gap-2">
+                🗑️ Delete Note
+            </button>
             <button onclick="closeModal()" class="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl font-medium">Close</button>
         </div>
     </div>
@@ -304,6 +312,7 @@ async def root():
 let messages = [];
 let modelsData = [];
 let currentThreshold = 0.65;
+let currentNotePath = '';
 
 async function refreshStats() {{
     const res = await fetch('/api/stats');
@@ -403,6 +412,7 @@ async function loadNotes() {{
     `).join('');
 }}
 async function showNoteModal(path) {{
+    currentNotePath = path;
     const res = await fetch(`/api/note/${{path}}`);
     const data = await res.json();
     if (data.error) return alert(data.error);
@@ -413,10 +423,25 @@ async function showNoteModal(path) {{
     document.getElementById('noteModal').classList.remove('hidden');
     document.getElementById('noteModal').classList.add('flex');
 }}
+async function deleteCurrentNote() {{
+    if (!currentNotePath) return;
+    if (!confirm("Permanently delete this note? This cannot be undone.")) return;
+
+    const res = await fetch(`/api/note/${{currentNotePath}}`, {{method: 'DELETE'}});
+    const data = await res.json();
+    if (data.status === "deleted") {{
+        closeModal();
+        await loadNotes();
+        await refreshStats();
+    }} else {{
+        alert("Delete failed: " + (data.error || "unknown error"));
+    }}
+}}
 function closeModal() {{
     const modal = document.getElementById('noteModal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
+    currentNotePath = '';
 }}
 document.addEventListener('keydown', (e) => {{
     if (e.key === 'Escape') closeModal();

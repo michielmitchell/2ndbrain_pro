@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Added live "Filter thoughts..." search box above table (real-time filtering on Thought column, works with category filter too)
+# purpose: Select-All checkbox now properly reflects state — checked only when ALL visible rows are selected, instantly unchecks when any row is deselected
 
 import re
 import json
@@ -599,6 +599,17 @@ function setCategoryFilter(cat) {
     highlightActiveCard();
 }
 
+function updateSelectAllHeader() {
+    const header = document.getElementById('selectAllHeader');
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    if (allCheckboxes.length === 0) {
+        header.checked = false;
+        return;
+    }
+    const checkedCount = Array.from(allCheckboxes).filter(chk => chk.checked).length;
+    header.checked = checkedCount === allCheckboxes.length;
+}
+
 async function renderTable() {
     const res = await fetch('/api/notes');
     let notes = await res.json();
@@ -636,6 +647,7 @@ async function renderTable() {
     document.getElementById('thoughtsTableBody').innerHTML = html;
     document.getElementById('filteredCount').textContent = `${notes.length} thoughts`;
     updateBulkUI();
+    updateSelectAllHeader();
 }
 
 function toggleRow(checkbox) {
@@ -643,6 +655,7 @@ function toggleRow(checkbox) {
     if (checkbox.checked) selectedPaths.add(path);
     else selectedPaths.delete(path);
     updateBulkUI();
+    updateSelectAllHeader();
 }
 
 function toggleSelectAll() {

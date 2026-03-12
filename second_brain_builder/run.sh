@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner - dashboard now shows the exact AI categories (People, Projects, Ideas, Admin, Review) with live counts
+# purpose: One-click runner - sortable table now filters instantly when clicking any category card
 
 #!/bin/bash
 set -e
@@ -14,13 +14,8 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== AI CATEGORY DASHBOARD FIXED ==="
-echo "Cards now show the exact categories the AI sorts thoughts into:"
-echo "• Total Thoughts"
-echo "• People"
-echo "• Projects"
-echo "• Ideas"
-echo "• Admin"
-echo "• Review"
-echo "All counts update instantly after every save"
+echo "=== SORTABLE CATEGORY TABLE READY ==="
+echo "Click any category card above the table to filter instantly"
+echo "Click table headers to sort by Filename/Category/Date"
+echo "All fixed - no more NameError"
 "$VENV_DIR/bin/python" main.py "$@"

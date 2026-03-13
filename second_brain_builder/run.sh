@@ -1,5 +1,5 @@
 # filename: second_brain_builder/run.sh
-# purpose: One-click runner — averages in category cards now correct + full modular structure
+# purpose: One-click runner — 'ollama' package now installed on fresh git pull (fixes vector_store init)
 
 #!/bin/bash
 set -e
@@ -13,7 +13,7 @@ export PYTHONPATH=.
 echo "Installing/updating dependencies..."
 pip install -r requirements.txt --quiet
 echo "🚀 Launching Second Brain Builder"
-echo "=== CATEGORY CARD AVERAGES NOW CORRECT ==="
-echo "• Projects/Ideas/Admin/etc. now show real avg confidence"
-echo "• Full modular structure (helpers + routes + frontend + app)"
+echo "=== OLLAMA PYTHON PACKAGE ADDED ==="
+echo "• Fixed missing 'ollama' package on fresh git clones"
+echo "• Vector store now initializes correctly"
 "$VENV_DIR/bin/python" main.py "$@"

@@ -1,8 +1,9 @@
 # filename: second_brain_builder/requirements.txt
-# purpose: Dependencies unchanged (modular split does not add new packages)
+# purpose: Added missing 'ollama' package (required by ChromaDB OllamaEmbeddingFunction)
 
 chromadb
 fastapi
 uvicorn[standard]
 pydantic
 python-multipart
+ollama

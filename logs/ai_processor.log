@@ -310,3 +310,82 @@
 2026-03-12 22:08:19,291 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
 2026-03-12 22:08:20,673 - INFO - Ollama connected to http://192.168.3.237:11434
 2026-03-12 22:08:22,131 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:02:54,597 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-13 03:02:55,309 - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2026-03-13 03:02:55,510 - INFO - [CATEGORIZATION PROMPT SENT TO granite4:tiny-h]
+2026-03-13 03:03:02,348 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:03:02,348 - INFO - [CATEGORIZATION RAW] {
+  "category": "Projects",
+  "confidence": 0.80
+}
+2026-03-13 03:03:07,341 - INFO - HTTP Request: POST http://192.168.3.237:11434/api/embed "HTTP/1.1 200 OK"
+2026-03-13 03:03:07,414 - INFO - [SAVE SUCCESS] projects-project-i-had-a-tzr250-a-long-time-ago-it-was-a-nice-bike-0.80-20260313-030302.md + vector embedded
+2026-03-13 03:03:08,773 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:06:41,049 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-13 03:06:41,550 - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2026-03-13 03:06:41,678 - INFO - [CATEGORIZATION PROMPT SENT TO granite4:tiny-h]
+2026-03-13 03:06:48,357 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:06:48,358 - INFO - [CATEGORIZATION RAW] {
+  "category": "Projects",
+  "confidence": 0.85
+}
+2026-03-13 03:06:53,398 - INFO - HTTP Request: POST http://192.168.3.237:11434/api/embed "HTTP/1.1 200 OK"
+2026-03-13 03:06:53,503 - INFO - [SAVE SUCCESS] projects-project-the-biggest-bike-i-had-was-a-kawasaki-zx9-r-don-t-0.85-20260313-030648.md + vector embedded
+2026-03-13 03:06:54,983 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:06:57,515 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-13 03:06:58,011 - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2026-03-13 03:06:58,140 - INFO - [CATEGORIZATION PROMPT SENT TO granite4:tiny-h]
+2026-03-13 03:06:58,697 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:06:58,698 - INFO - [CATEGORIZATION RAW] {
+  "category": "Projects",
+  "confidence": 0.8
+}
+2026-03-13 03:06:58,750 - INFO - HTTP Request: POST http://192.168.3.237:11434/api/embed "HTTP/1.1 200 OK"
+2026-03-13 03:06:58,810 - INFO - [SAVE SUCCESS] projects-i-also-had-a-kawasaki-kr250-that-was-a-nice-bike-but-expe-0.80-20260313-030658.md + vector embedded
+2026-03-13 03:07:01,137 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:07:01,934 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-13 03:07:02,443 - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2026-03-13 03:07:02,574 - INFO - [CATEGORIZATION PROMPT SENT TO granite4:tiny-h]
+2026-03-13 03:07:03,691 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:07:03,691 - INFO - [CATEGORIZATION RAW] {
+  "category": "Projects",
+  "confidence": 0.80
+}
+
+This thought clearly falls under the "Projects" category as it describes a specific personal project related to a past possession, the TZR250 motorcycle. The confidence is set at 0.80 because the description is straightforward and directly relates to a defined project.
+2026-03-13 03:07:03,740 - INFO - HTTP Request: POST http://192.168.3.237:11434/api/embed "HTTP/1.1 200 OK"
+2026-03-13 03:07:03,797 - INFO - [SAVE SUCCESS] projects-project-i-had-a-tzr250-a-long-time-ago-it-was-a-nice-bike-0.80-20260313-030703.md + vector embedded
+2026-03-13 03:07:05,388 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:07:06,047 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-13 03:07:06,537 - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2026-03-13 03:07:06,664 - INFO - [CATEGORIZATION PROMPT SENT TO granite4:tiny-h]
+2026-03-13 03:07:07,262 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:07:07,263 - INFO - [CATEGORIZATION RAW] {
+  "category": "Projects",
+  "confidence": 0.8
+}
+2026-03-13 03:07:07,310 - INFO - HTTP Request: POST http://192.168.3.237:11434/api/embed "HTTP/1.1 200 OK"
+2026-03-13 03:07:07,368 - INFO - [SAVE SUCCESS] projects-project-my-first-bike-was-a-rz50-i-do-not-have-it-any-more-0.80-20260313-030707.md + vector embedded
+2026-03-13 03:07:08,974 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:07:10,895 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-13 03:07:11,302 - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2026-03-13 03:07:11,436 - INFO - [CATEGORIZATION PROMPT SENT TO granite4:tiny-h]
+2026-03-13 03:07:12,059 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:07:12,060 - INFO - [CATEGORIZATION RAW] {
+  "category": "Projects",
+  "confidence": 0.85
+}
+2026-03-13 03:07:12,103 - INFO - HTTP Request: POST http://192.168.3.237:11434/api/embed "HTTP/1.1 200 OK"
+2026-03-13 03:07:12,164 - INFO - [SAVE SUCCESS] projects-project-the-biggest-bike-i-had-was-a-kawasaki-zx9-r-don-t-0.85-20260313-030712.md + vector embedded
+2026-03-13 03:07:13,559 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:07:14,976 - INFO - Ollama connected to http://192.168.3.237:11434
+2026-03-13 03:07:15,374 - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2026-03-13 03:07:15,503 - INFO - [CATEGORIZATION PROMPT SENT TO granite4:tiny-h]
+2026-03-13 03:07:16,137 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2026-03-13 03:07:16,138 - INFO - [CATEGORIZATION RAW] {
+  "category": "Projects",
+  "confidence": 0.85
+}
+2026-03-13 03:07:16,191 - INFO - HTTP Request: POST http://192.168.3.237:11434/api/embed "HTTP/1.1 200 OK"
+2026-03-13 03:07:16,251 - INFO - [SAVE SUCCESS] projects-project-my-bike-is-very-vast-it-is-an-yzf600r-r6-yamaha-i-0.85-20260313-030716.md + vector embedded
+2026-03-13 03:07:18,013 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"

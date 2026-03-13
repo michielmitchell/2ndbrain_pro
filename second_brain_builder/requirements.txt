@@ -1,10 +1,8 @@
 # filename: second_brain_builder/requirements.txt
-# purpose: Production dependencies (added ollama for direct connection to configured local models)
+# purpose: Added chromadb for vector memory layer (ChromaDB #1 integration)
 
-yt-dlp>=2025.1.0
-youtube-transcript-api>=0.6.2
-requests>=2.32.0
-pyyaml>=6.0.1
-fastapi>=0.115.4
-uvicorn[standard]>=0.30.6
-ollama>=0.4.0
+chromadb
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart

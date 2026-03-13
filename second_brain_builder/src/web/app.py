@@ -1,5 +1,5 @@
 # filename: second_brain_builder/src/web/app.py
-# purpose: Table columns now fully sortable (Thought, Category, Confidence numeric, Date & Time) with ↑/↓ arrows and instant re-render
+# purpose: AI Review Threshold slider now vertical + tall (left panel) exactly as requested
 
 import re
 import json
@@ -10,14 +10,11 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import os
 from src.config import VAULT_ROOT, DEFAULT_PORT, OLLAMA_HOST
-from src.utils.folder_setup import setup_all_folders
-from src.modules.video_processor import process_youtube_links
-from src.modules.document_processor import process_report
-from src.modules.obsidian_exporter import create_obsidian_structure
-from src.modules.ai_processor import OllamaClient
-from src.modules.model_manager import model_manager
+from src.modules.vector_store import vector_store
 from src.modules.thought_processor import save_thought_and_reply
 from src.modules.prompt_manager import prompt_manager
+from src.modules.model_manager import model_manager
+from src.modules.ai_processor import OllamaClient
 
 app = FastAPI(title="Second Brain Builder")
 app.mount("/vault", StaticFiles(directory=str(VAULT_ROOT), html=True), name="vault")
@@ -26,64 +23,25 @@ app.mount("/vault", StaticFiles(directory=str(VAULT_ROOT), html=True), name="vau
 async def favicon():
     return Response(status_code=204)
 
-@app.get("/api/note/{path:path}")
-async def get_note(path: str):
-    full_path = VAULT_ROOT / path
-    if full_path.exists() and full_path.is_file():
-        content = full_path.read_text(encoding="utf-8")
-        return {"filename": Path(path).name, "content": content}
-    return {"error": "File not found"}
+ollama_client = OllamaClient()
 
-@app.delete("/api/note/{path:path}")
-async def delete_note(path: str):
-    full_path = VAULT_ROOT / path
-    if full_path.exists() and full_path.is_file():
-        full_path.unlink()
-        return {"status": "deleted"}
-    return {"error": "File not found"}
+def get_vault_stats():
+    stats = {"total_notes": 0, "People": 0, "Projects": 0, "Ideas": 0, "Admin": 0, "Review": 0, "avg_all": 0.0}
+    thoughts_dir = VAULT_ROOT / "notes" / "thoughts"
+    if thoughts_dir.exists():
+        for f in thoughts_dir.glob("*.md"):
+            stats["total_notes"] += 1
+            name_lower = f.name.lower()
+            if name_lower.startswith("people-"): stats["People"] += 1
+            elif name_lower.startswith("projects-"): stats["Projects"] += 1
+            elif name_lower.startswith("ideas-"): stats["Ideas"] += 1
+            elif name_lower.startswith("admin-"): stats["Admin"] += 1
+            elif name_lower.startswith("review-"): stats["Review"] += 1
+    return stats
 
 @app.get("/api/stats")
 async def api_stats():
     return get_vault_stats()
-
-ollama_client = OllamaClient()
-
-def get_vault_stats():
-    stats = {
-        "total_notes": 0, "People": 0, "Projects": 0, "Ideas": 0, "Admin": 0, "Review": 0,
-        "avg_People": 0.0, "avg_Projects": 0.0, "avg_Ideas": 0.0, "avg_Admin": 0.0, "avg_Review": 0.0
-    }
-    sum_conf = {"People": 0.0, "Projects": 0.0, "Ideas": 0.0, "Admin": 0.0, "Review": 0.0}
-    total_conf = 0.0
-    thoughts_dir = VAULT_ROOT / "notes" / "thoughts"
-    if thoughts_dir.exists():
-        for f in thoughts_dir.glob("*.md"):
-            name_lower = f.name.lower()
-            stats["total_notes"] += 1
-            conf_match = re.search(r'-([0-9.]+)-(?:\d{8}(?:-\d{6})?)\.md$', f.name)
-            conf = float(conf_match.group(1)) if conf_match else 0.0
-            total_conf += conf
-            if name_lower.startswith("people-"):
-                stats["People"] += 1
-                sum_conf["People"] += conf
-            elif name_lower.startswith("projects-"):
-                stats["Projects"] += 1
-                sum_conf["Projects"] += conf
-            elif name_lower.startswith("ideas-"):
-                stats["Ideas"] += 1
-                sum_conf["Ideas"] += conf
-            elif name_lower.startswith("admin-"):
-                stats["Admin"] += 1
-                sum_conf["Admin"] += conf
-            elif name_lower.startswith("review-"):
-                stats["Review"] += 1
-                sum_conf["Review"] += conf
-    for cat in ["People", "Projects", "Ideas", "Admin", "Review"]:
-        count = stats[cat]
-        if count > 0:
-            stats[f"avg_{cat}"] = round(sum_conf[cat] / count, 2)
-    stats["avg_all"] = round(total_conf / stats["total_notes"], 2) if stats["total_notes"] > 0 else 0.0
-    return stats
 
 @app.get("/api/models")
 async def api_models():
@@ -100,8 +58,11 @@ async def save_model_config(data: dict = Body(...)):
 
 @app.get("/api/ollama_status")
 async def api_ollama_status():
-    models = model_manager.get_models()
-    return {"host": OLLAMA_HOST, "connected": len(models) > 0, "models_count": len(models)}
+    try:
+        models = model_manager.get_models()
+        return {"host": OLLAMA_HOST, "connected": len(models) > 0, "models_count": len(models)}
+    except:
+        return {"host": OLLAMA_HOST, "connected": False, "models_count": 0}
 
 @app.get("/api/notes")
 async def api_notes():
@@ -143,6 +104,11 @@ async def api_notes():
                     "datetime": formatted_dt
                 })
     return JSONResponse(notes)
+
+@app.get("/api/semantic_search")
+async def api_semantic_search(query: str = "", category: str = "all", top_k: int = 30):
+    hits = vector_store.semantic_search(query, top_k, category if category != "all" else None)
+    return JSONResponse(hits)
 
 @app.get("/api/prompts")
 async def api_prompts():
@@ -196,40 +162,25 @@ If your confidence would be below this threshold, you MUST use category "Review"
 Return ONLY valid JSON. NO explanations, NO extra text after the closing brace."""
     assignment = model_manager.get_assignment()
     primary_model = assignment.get("primary", "qwen2.5:14b")
-    print(f"[AI REVIEW PROMPT SENT TO {primary_model}]\n{review_prompt}\n")
     raw = ollama_client.chat_with_vault(review_prompt, primary_model)
-    print(f"[AI REVIEW RAW RESPONSE]\n{raw}\n")
     json_match = re.search(r'(\{.*?\})', raw, re.DOTALL)
     if not json_match:
-        print("[AI REVIEW JSON EXTRACTION FAILED] No JSON block found")
         return {"status": "failed"}
     json_str = json_match.group(1)
     try:
         data = json.loads(json_str)
         new_category = data.get("category", "Review")
         new_confidence = float(data.get("confidence", 0.0))
-        stem = p.stem
-        if '-' in stem:
-            slug_part = stem.split('-', 1)[1]
-        else:
-            slug_part = stem
-        slug = re.sub(r'--+', '-', slug_part).strip('-')
-        date_match = re.search(r'(\d{8}(?:-\d{6})?)$', stem)
-        date_part = date_match.group(1) if date_match else datetime.now().strftime("%Y%m%d-%H%M%S")
-        if date_match:
-            slug = slug[:-len(date_part)].strip('-')
-        new_name = f"{new_category.lower()}-{slug}-{new_confidence:.2f}-{date_part}.md"
+        slug, timestamp = extract_slug_and_timestamp(p.name)
+        new_name = f"{new_category.lower()}-{slug}-{new_confidence:.2f}-{timestamp}.md"
         new_p = p.parent / new_name
         if p != new_p:
             p.rename(new_p)
-            print(f"[RENAME SUCCESS] {p.name} → {new_name}")
             p = new_p
         with open(p, "a", encoding="utf-8") as fp:
             fp.write(f"\n\n## AI Review Summary (Ollama)\n{raw}\n")
-        print(f"[AI REVIEW SUCCESS] Added summary to {new_name}")
         return {"status": "enhanced", "new_path": str(new_p.relative_to(VAULT_ROOT)), "summary": raw[:300]}
-    except Exception as e:
-        print(f"[AI REVIEW JSON PARSE FAILED] {e}")
+    except:
         return {"status": "failed"}
 
 @app.post("/api/bulk_edit")
@@ -246,25 +197,18 @@ async def bulk_edit(request: dict = Body(...)):
         stem = p.stem
         cat_match = re.match(r'^([a-z]+)-', stem)
         current_cat = cat_match.group(1).capitalize() if cat_match else "Review"
-        conf_match = re.search(r'-([0-9.]+)-(?:\d{8}(?:-\d{6})?)$', stem)
-        current_conf = float(conf_match.group(1)) if conf_match else 0.0
         if force_review:
             new_category = "Review"
         elif new_category == "keep":
             new_category = current_cat
-        slug_part = re.sub(r'^[a-z]+-', '', stem)
-        slug = re.sub(r'--+', '-', slug_part).strip('-')
-        date_match = re.search(r'(\d{8}(?:-\d{6})?)$', stem)
-        date_part = date_match.group(1) if date_match else datetime.now().strftime("%Y%m%d-%H%M%S")
-        new_name = f"{new_category.lower()}-{slug}-{new_confidence:.2f}-{date_part}.md"
+        slug, timestamp = extract_slug_and_timestamp(p.name)
+        new_name = f"{new_category.lower()}-{slug}-{new_confidence:.2f}-{timestamp}.md"
         new_p = p.parent / new_name
         if p != new_p:
             p.rename(new_p)
-            print(f"[BULK RENAME SUCCESS] {p.name} → {new_name}")
             p = new_p
         with open(p, "a", encoding="utf-8") as fp:
             fp.write(f"\n\n## Bulk Edit Applied (category={new_category}, confidence={new_confidence})\n")
-        print(f"[BULK EDIT SUCCESS] {path_str} updated (cat={new_category}, conf={new_confidence})")
     return {"status": "success"}
 
 @app.post("/api/chat")
@@ -280,6 +224,37 @@ async def api_save_thought(request: dict = Body(...)):
     thought = request.get("thought", "")
     return save_thought_and_reply(thought)
 
+def extract_slug_and_timestamp(filename: str):
+    stem = Path(filename).stem
+    date_match = re.search(r'(\d{8}(?:-\d{6})?)$', stem)
+    timestamp = date_match.group(1) if date_match else datetime.now().strftime("%Y%m%d-%H%M%S")
+    if date_match:
+        base = stem[:date_match.start()].strip('-')
+    else:
+        base = stem
+    slug = re.sub(r'^[a-z]+-', '', base)
+    slug = re.sub(r'-[0-9.]+$', '', slug)
+    slug = re.sub(r'--+', '-', slug).strip('-')
+    if not slug:
+        slug = "thought"
+    return slug, timestamp
+
+@app.get("/api/note/{path:path}")
+async def get_note(path: str):
+    full_path = VAULT_ROOT / path
+    if full_path.exists() and full_path.is_file():
+        content = full_path.read_text(encoding="utf-8")
+        return {"filename": Path(path).name, "content": content}
+    return {"error": "File not found"}
+
+@app.delete("/api/note/{path:path}")
+async def delete_note(path: str):
+    full_path = VAULT_ROOT / path
+    if full_path.exists() and full_path.is_file():
+        full_path.unlink()
+        return {"status": "deleted"}
+    return {"error": "File not found"}
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return """
@@ -292,7 +267,15 @@ async def root():
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
         body { font-family: 'Inter', system-ui; }
-        input[type="range"][orient="vertical"] { writing-mode: bt-lr; appearance: slider-vertical; }
+        /* Vertical slider CSS - forces vertical orientation in all browsers */
+        input[type="range"][orient="vertical"] {
+            writing-mode: bt-lr;
+            appearance: slider-vertical;
+            -webkit-appearance: slider-vertical;
+            height: 280px;
+            width: 20px;
+            accent-color: rgb(167 139 250);
+        }
     </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100">
@@ -393,7 +376,12 @@ async def root():
             <div class="bg-zinc-900 rounded-3xl overflow-hidden">
                 <div class="px-8 py-5 border-b border-zinc-700 flex items-center justify-between">
                     <h3 id="tableTitle" class="text-lg font-semibold">All Thoughts</h3>
-                    <input id="thoughtFilter" type="text" placeholder="Filter thoughts..." class="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-2 text-sm focus:outline-none focus:border-violet-500 w-80">
+                    <div class="flex items-center gap-4">
+                        <input id="thoughtFilter" type="text" placeholder="Filter thoughts..." class="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-2 text-sm focus:outline-none focus:border-violet-500 w-80">
+                        <label class="flex items-center gap-2 text-sm text-zinc-400 cursor-pointer">
+                            <input type="checkbox" id="semanticToggle" class="accent-violet-500"> Semantic search
+                        </label>
+                    </div>
                     <div class="flex items-center gap-6">
                         <div id="bulkActions" class="hidden flex items-center gap-3">
                             <button onclick="deleteSelected()" class="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-medium text-sm">
@@ -403,7 +391,7 @@ async def root():
                                 ✏️ Bulk Edit Selected
                             </button>
                             <button onclick="sendForAIReview()" id="reviewButton" class="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-medium text-sm">
-                                📤 Send Selected for AI Review (live)
+                                📤 Send Selected for AI Review
                             </button>
                         </div>
                         <span id="filteredCount" class="text-zinc-400 text-sm font-medium">0 thoughts</span>
@@ -451,7 +439,7 @@ async def root():
             </div>
         </div>
 
-        <!-- Prompts Config Tab — THRESHOLD NOW VERTICAL ON LEFT -->
+        <!-- Prompts Config Tab -->
         <div id="tab3" class="flex-1 p-6 overflow-hidden hidden">
             <div class="flex gap-6 h-full">
                 <!-- LEFT: Vertical AI Review Threshold -->
@@ -462,33 +450,28 @@ async def root():
                         <div class="mt-6 text-4xl font-mono text-violet-300" id="thresholdValue">0.65</div>
                     </div>
                     <button onclick="saveThreshold()" class="mt-4 w-full bg-violet-600 hover:bg-violet-700 text-white py-3 rounded-2xl font-semibold">Save Threshold</button>
-                    <div class="text-xs text-emerald-400 text-center mt-3">tells AI when to force Review bucket</div>
                 </div>
 
                 <!-- RIGHT: Two prompt boxes stacked -->
                 <div class="flex-1 flex flex-col gap-6">
                     <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
-                        <h3 class="font-semibold text-lg mb-3">Categorization Prompt <span class="text-xs text-emerald-400">(used by both new thoughts AND AI Review)</span></h3>
-                        <textarea id="categorizationPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
+                        <h3 class="font-semibold text-lg mb-3">Categorization Prompt</h3>
+                        <textarea id="categorizationPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none"></textarea>
                         <div class="flex gap-3 mt-4">
                             <button onclick="saveCategorizationPrompt()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
-                                💾 Save Categorization Prompt
+                                💾 Save
                             </button>
-                            <button onclick="resetCategorizationPrompt()" class="px-6 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 py-3 rounded-xl font-medium flex items-center gap-2">
-                                🔄 Reset
-                            </button>
+                            <button onclick="resetCategorizationPrompt()" class="px-6 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 py-3 rounded-xl font-medium">🔄 Reset</button>
                         </div>
                     </div>
                     <div class="bg-zinc-900 rounded-3xl p-5 flex-1 flex flex-col">
                         <h3 class="font-semibold text-lg mb-3">Search Prompt</h3>
-                        <textarea id="searchPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none" spellcheck="false"></textarea>
+                        <textarea id="searchPrompt" class="flex-1 bg-zinc-800 text-zinc-300 p-4 rounded-xl font-mono text-sm focus:outline-none focus:border-violet-500 resize-none"></textarea>
                         <div class="flex gap-3 mt-4">
                             <button onclick="saveSearchPrompt()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
-                                💾 Save Search Prompt
+                                💾 Save
                             </button>
-                            <button onclick="resetSearchPrompt()" class="px-6 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 py-3 rounded-xl font-medium flex items-center gap-2">
-                                🔄 Reset Search Prompt
-                            </button>
+                            <button onclick="resetSearchPrompt()" class="px-6 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 py-3 rounded-xl font-medium">🔄 Reset</button>
                         </div>
                     </div>
                 </div>
@@ -557,14 +540,12 @@ async def root():
 </div>
 
 <script>
-let messages = [];
-let modelsData = [];
-let currentThreshold = 0.65;
-let currentNotePath = '';
-let currentCategoryFilter = 'all';
 let sortColumn = 0;
 let sortAsc = true;
 let selectedPaths = new Set();
+let currentCategoryFilter = 'all';
+let useSemantic = false;
+let messages = [];
 
 async function refreshStats() {
     const res = await fetch('/api/stats');
@@ -575,12 +556,6 @@ async function refreshStats() {
     document.getElementById('ideasCount').textContent = stats.Ideas;
     document.getElementById('adminCount').textContent = stats.Admin;
     document.getElementById('reviewCount').textContent = stats.Review;
-    document.getElementById('avg-all').textContent = stats.avg_all.toFixed(2);
-    document.getElementById('avg-People').textContent = stats.avg_People.toFixed(2);
-    document.getElementById('avg-Projects').textContent = stats.avg_Projects.toFixed(2);
-    document.getElementById('avg-Ideas').textContent = stats.avg_Ideas.toFixed(2);
-    document.getElementById('avg-Admin').textContent = stats.avg_Admin.toFixed(2);
-    document.getElementById('avg-Review').textContent = stats.avg_Review.toFixed(2);
 }
 
 function highlightActiveCard() {
@@ -588,7 +563,8 @@ function highlightActiveCard() {
     if (currentCategoryFilter === 'all') {
         document.getElementById('card-all').classList.add('border-violet-500');
     } else {
-        document.getElementById(`card-${currentCategoryFilter}`).classList.add('border-violet-500');
+        const el = document.getElementById(`card-${currentCategoryFilter}`);
+        if (el) el.classList.add('border-violet-500');
     }
 }
 
@@ -602,44 +578,29 @@ function setCategoryFilter(cat) {
 function updateSortIndicators() {
     document.querySelectorAll('.sort-indicator').forEach(el => el.textContent = '↕');
     const currentIndicator = document.getElementById(`sort${sortColumn}`);
-    if (currentIndicator) {
-        currentIndicator.textContent = sortAsc ? '↑' : '↓';
-    }
+    if (currentIndicator) currentIndicator.textContent = sortAsc ? '↑' : '↓';
 }
 
 async function renderTable() {
-    const res = await fetch('/api/notes');
-    let notes = await res.json();
-    const filterText = document.getElementById('thoughtFilter').value.toLowerCase().trim();
-    if (filterText) {
-        notes = notes.filter(n => n.thought.toLowerCase().includes(filterText));
-    }
-    if (currentCategoryFilter !== 'all') {
-        notes = notes.filter(n => n.category.toLowerCase() === currentCategoryFilter.toLowerCase());
+    const filterText = document.getElementById('thoughtFilter').value.trim();
+    let notes;
+    if (useSemantic && filterText) {
+        const res = await fetch(`/api/semantic_search?query=${encodeURIComponent(filterText)}&category=${currentCategoryFilter}`);
+        notes = await res.json();
+    } else {
+        const res = await fetch('/api/notes');
+        notes = await res.json();
+        if (filterText) notes = notes.filter(n => n.thought.toLowerCase().includes(filterText.toLowerCase()));
+        if (currentCategoryFilter !== 'all') notes = notes.filter(n => n.category.toLowerCase() === currentCategoryFilter.toLowerCase());
     }
     notes.sort((a, b) => {
         let va, vb;
         let multiplier = sortAsc ? 1 : -1;
         switch (sortColumn) {
-            case 0: // Thought
-                va = a.thought.toLowerCase();
-                vb = b.thought.toLowerCase();
-                break;
-            case 1: // Category
-                va = a.category.toLowerCase();
-                vb = b.category.toLowerCase();
-                break;
-            case 2: // Confidence
-                va = parseFloat(a.confidence) || 0;
-                vb = parseFloat(b.confidence) || 0;
-                break;
-            case 3: // Date & Time
-                va = a.datetime || '';
-                vb = b.datetime || '';
-                break;
-            default:
-                va = a.thought.toLowerCase();
-                vb = b.thought.toLowerCase();
+            case 0: va = a.thought.toLowerCase(); vb = b.thought.toLowerCase(); break;
+            case 1: va = a.category.toLowerCase(); vb = b.category.toLowerCase(); break;
+            case 2: va = parseFloat(a.confidence) || 0; vb = parseFloat(b.confidence) || 0; break;
+            case 3: va = a.datetime || ''; vb = b.datetime || ''; break;
         }
         if (va < vb) return multiplier * -1;
         if (va > vb) return multiplier * 1;
@@ -716,18 +677,7 @@ function bulkEditSelected() {
     const count = selectedPaths.size;
     if (count === 0) return;
     document.getElementById('bulkEditTitle').textContent = `Bulk Edit ${count} Thoughts`;
-    let sumConf = 0;
-    let validCount = 0;
-    for (let path of Array.from(selectedPaths)) {
-        const name = path.split('/').pop() || '';
-        const confMatch = name.match(/-([0-9.]+)-(?:\\d{8}(?:-\\d{6})?)\\.md$/);
-        if (confMatch) {
-            sumConf += parseFloat(confMatch[1]);
-            validCount++;
-        }
-    }
-    const avgConf = validCount > 0 ? (sumConf / validCount) : 0.75;
-    document.getElementById('bulkNewConfidence').value = avgConf.toFixed(2);
+    document.getElementById('bulkNewConfidence').value = "0.75";
     document.getElementById('bulkSetReview').checked = false;
     document.getElementById('bulkEditModal').classList.remove('hidden');
     document.getElementById('bulkEditModal').classList.add('flex');
@@ -745,58 +695,37 @@ async function applyBulkEdit() {
     const newConf = parseFloat(document.getElementById('bulkNewConfidence').value);
     const forceReview = document.getElementById('bulkSetReview').checked;
     hideBulkEditModal();
-    const res = await fetch('/api/bulk_edit', {
+    await fetch('/api/bulk_edit', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            paths: paths,
-            new_category: newCat,
-            new_confidence: newConf,
-            force_review: forceReview
-        })
+        body: JSON.stringify({paths, new_category: newCat, new_confidence: newConf, force_review: forceReview})
     });
-    const data = await res.json();
-    if (data.status === "success") {
-        console.log(`[BULK EDIT SUCCESS] ${paths.length} thoughts updated`);
-        selectedPaths.clear();
-        renderTable();
-        refreshStats();
-        updateBulkUI();
-    }
+    selectedPaths.clear();
+    renderTable();
+    refreshStats();
+    updateBulkUI();
 }
 
 async function sendForAIReview() {
     const paths = Array.from(selectedPaths);
     if (paths.length === 0) return;
-    const reviewBtn = document.getElementById('reviewButton');
-    const originalHTML = reviewBtn.innerHTML;
-    reviewBtn.disabled = true;
-    let processed = 0;
+    const btn = document.getElementById('reviewButton');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span> Reviewing...`;
     for (let path of paths) {
-        processed++;
-        reviewBtn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span> AI Review ${processed}/${paths.length}`;
-        try {
-            const res = await fetch('/api/enhance_note', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({path})
-            });
-            const data = await res.json();
-            if (data.status === 'enhanced') {
-                console.log(`[AI REVIEW SUCCESS] ${path} → ${data.new_path}`);
-                selectedPaths.delete(path);
-                const chk = document.querySelector(`input[data-path="${path}"]`);
-                if (chk) chk.checked = false;
-            }
-        } catch (e) {
-            console.error(`[AI REVIEW ERROR] ${path}: ${e}`);
-        }
-        await renderTable();
-        await refreshStats();
-        updateBulkUI();
+        await fetch('/api/enhance_note', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({path})
+        });
     }
-    reviewBtn.disabled = false;
-    reviewBtn.innerHTML = originalHTML;
+    btn.disabled = false;
+    btn.innerHTML = original;
+    selectedPaths.clear();
+    renderTable();
+    refreshStats();
+    updateBulkUI();
 }
 
 async function deleteNote(path) {
@@ -808,15 +737,100 @@ async function deleteNote(path) {
 }
 
 function sortTable(col) {
-    if (sortColumn === col) {
-        sortAsc = !sortAsc;
-    } else {
-        sortColumn = col;
-        sortAsc = true;
-    }
+    if (sortColumn === col) sortAsc = !sortAsc;
+    else { sortColumn = col; sortAsc = true; }
     renderTable();
 }
 
+async function showNoteModal(path) {
+    const res = await fetch(`/api/note/${path}`);
+    const data = await res.json();
+    if (data.error) return;
+    document.getElementById('modalFilename').textContent = data.filename;
+    document.getElementById('modalContent').textContent = data.content;
+    document.getElementById('modalOpenObsidian').href = `/vault/${path}`;
+    document.getElementById('noteModal').classList.remove('hidden');
+    document.getElementById('noteModal').classList.add('flex');
+}
+
+function closeModal() {
+    const modal = document.getElementById('noteModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+async function enhanceWithAI() {
+    const btn = document.getElementById('enhanceBtn');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full mr-2"></span> Enhancing...`;
+    const res = await fetch('/api/enhance', {method: 'POST'});
+    const data = await res.json();
+    btn.disabled = false;
+    btn.innerHTML = original;
+    if (data.status === "success") {
+        alert(`✅ Enhanced ${data.enhanced} thoughts`);
+        renderTable();
+        refreshStats();
+    }
+}
+
+function renderChat() {
+    const win = document.getElementById('chatWindow');
+    win.innerHTML = messages.map(m => `
+        <div class="mb-6 ${m.role==='user' ? 'text-right' : ''}">
+            <div class="inline-block max-w-lg px-5 py-3 rounded-3xl ${m.role==='user' ? 'bg-violet-600' : 'bg-zinc-800'}">
+                ${m.content}
+            </div>
+        </div>
+    `).join('');
+    win.scrollTop = win.scrollHeight;
+}
+
+async function sendChat() {
+    const input = document.getElementById('chatInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+    messages.push({role: 'user', content: msg});
+    renderChat();
+    const tempMsg = msg;
+    input.value = '';
+    try {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({message: tempMsg})
+        });
+        const data = await res.json();
+        messages.push({role: 'assistant', content: data.reply || "No response from Ollama"});
+        renderChat();
+    } catch (e) {
+        messages.push({role: 'assistant', content: "Error connecting to Ollama"});
+        renderChat();
+    }
+}
+
+async function saveThought() {
+    const input = document.getElementById('thoughtInput');
+    const thought = input.value.trim();
+    if (!thought) return;
+    const btn = document.getElementById('saveButton');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>Saving...`;
+    const res = await fetch('/api/save_thought', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({thought})});
+    const data = await res.json();
+    btn.disabled = false;
+    btn.innerHTML = original;
+    if (data.success) {
+        document.getElementById('replySection').innerHTML = `<p>${data.reply}</p>`;
+        input.value = '';
+        renderTable();
+        refreshStats();
+    }
+}
+
+/* ==================== MODELS TAB JS ==================== */
 async function loadModels() {
     const res = await fetch('/api/models');
     modelsData = await res.json();
@@ -833,9 +847,11 @@ async function renderModelTable() {
     const status = await loadOllamaStatus();
     let assignment = await loadModelConfig();
     const statusEl = document.getElementById('ollamaStatus');
+    const color = status.connected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400';
+    const icon = status.connected ? '✅' : '❌';
     statusEl.innerHTML = `
-        <span class="px-3 py-1 rounded-full text-xs font-medium ${status.connected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}">
-            ${status.connected ? '✅ Connected' : '❌ Not reachable'}
+        <span class="px-3 py-1 rounded-full text-xs font-medium ${color}">
+            ${icon} ${status.connected ? 'Connected' : 'Not reachable'}
         </span>
         <span class="font-mono text-xs">Host: ${status.host} • ${status.models_count} models loaded</span>
     `;
@@ -855,25 +871,13 @@ async function renderModelTable() {
         if (pb === -1) return -1;
         return pa - pb;
     });
-    let html = `
-        <table class="w-full border-collapse text-sm">
-            <thead><tr class="bg-zinc-800 text-zinc-400">
-                <th class="p-4 text-left">Model Name</th>
-                <th class="p-4 text-center">Primary</th>
-                <th class="p-4 text-center">Fallback 1</th>
-                <th class="p-4 text-center">Fallback 2</th>
-                <th class="p-4 text-center">Fallback 3</th>
-            </tr></thead>
-            <tbody>
-    `;
+    let html = `<table class="w-full border-collapse text-sm"><thead><tr class="bg-zinc-800 text-zinc-400"><th class="p-4 text-left">Model Name</th><th class="p-4 text-center">Primary</th><th class="p-4 text-center">Fallback 1</th><th class="p-4 text-center">Fallback 2</th><th class="p-4 text-center">Fallback 3</th></tr></thead><tbody>`;
     modelsData.forEach(m => {
-        html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800">
-            <td class="p-4 font-medium">${m.name} <span class="text-xs text-zinc-500">(${m.size_gb} GB)</span></td>
-            <td class="p-4 text-center"><input type="radio" name="primary" value="${m.name}" ${assignment.primary===m.name?'checked':''} onchange="updateAssignment(this)"></td>
-            <td class="p-4 text-center"><input type="radio" name="fallback1" value="${m.name}" ${assignment.fallback1===m.name?'checked':''} onchange="updateAssignment(this)"></td>
-            <td class="p-4 text-center"><input type="radio" name="fallback2" value="${m.name}" ${assignment.fallback2===m.name?'checked':''} onchange="updateAssignment(this)"></td>
-            <td class="p-4 text-center"><input type="radio" name="fallback3" value="${m.name}" ${assignment.fallback3===m.name?'checked':''} onchange="updateAssignment(this)"></td>
-        </tr>`;
+        html += `<tr class="border-t border-zinc-800 hover:bg-zinc-800"><td class="p-4 font-medium">${m.name} <span class="text-xs text-zinc-500">(${m.size_gb} GB)</span></td>`;
+        html += `<td class="p-4 text-center"><input type="radio" name="primary" value="${m.name}" ${assignment.primary===m.name?'checked':''} onchange="updateAssignment(this)"></td>`;
+        html += `<td class="p-4 text-center"><input type="radio" name="fallback1" value="${m.name}" ${assignment.fallback1===m.name?'checked':''} onchange="updateAssignment(this)"></td>`;
+        html += `<td class="p-4 text-center"><input type="radio" name="fallback2" value="${m.name}" ${assignment.fallback2===m.name?'checked':''} onchange="updateAssignment(this)"></td>`;
+        html += `<td class="p-4 text-center"><input type="radio" name="fallback3" value="${m.name}" ${assignment.fallback3===m.name?'checked':''} onchange="updateAssignment(this)"></td></tr>`;
     });
     html += `</tbody></table>`;
     document.getElementById('modelTable').innerHTML = html;
@@ -891,106 +895,8 @@ async function refreshModels() {
     await loadModels();
     await renderModelTable();
 }
-async function showNoteModal(path) {
-    currentNotePath = path;
-    const res = await fetch(`/api/note/${path}`);
-    const data = await res.json();
-    if (data.error) return alert(data.error);
-    document.getElementById('modalFilename').textContent = data.filename;
-    document.getElementById('modalContent').textContent = data.content;
-    document.getElementById('modalOpenObsidian').href = `/vault/${path}`;
-    document.getElementById('noteModal').classList.remove('hidden');
-    document.getElementById('noteModal').classList.add('flex');
-}
-async function deleteCurrentNote() {
-    if (!currentNotePath) return;
-    if (!confirm("Permanently delete this note?")) return;
-    const res = await fetch(`/api/note/${currentNotePath}`, {method: 'DELETE'});
-    if ((await res.json()).status === "deleted") {
-        selectedPaths.delete(currentNotePath);
-        closeModal();
-        renderTable();
-        refreshStats();
-    }
-}
-function closeModal() {
-    const modal = document.getElementById('noteModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    currentNotePath = '';
-}
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        closeModal();
-        hideBulkEditModal();
-    }
-});
-document.getElementById('noteModal').addEventListener('click', (e) => {
-    if (e.target.id === 'noteModal') closeModal();
-});
-async function enhanceWithAI() {
-    const btn = document.getElementById('enhanceBtn');
-    const originalHTML = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full mr-2"></span> Enhancing...`;
-    const res = await fetch('/api/enhance', {method: 'POST'});
-    const data = await res.json();
-    btn.disabled = false;
-    btn.innerHTML = originalHTML;
-    if (data.status === "success") {
-        alert(`✅ Enhanced ${data.enhanced} thoughts with Ollama!`);
-        renderTable();
-        refreshStats();
-    }
-}
-async function sendChat() {
-    const input = document.getElementById('chatInput');
-    const msg = input.value.trim();
-    if (!msg) return;
-    messages.push({role:'user', content:msg});
-    renderChat();
-    input.value = '';
-    const res = await fetch('/api/chat', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({message:msg})});
-    const data = await res.json();
-    messages.push({role:'assistant', content:data.reply});
-    renderChat();
-}
-function renderChat() {
-    const win = document.getElementById('chatWindow');
-    win.innerHTML = messages.map(m => `
-        <div class="mb-6 ${m.role==='user'?'text-right':''}">
-            <div class="inline-block max-w-lg px-5 py-3 rounded-3xl ${m.role==='user'?'bg-violet-600':'bg-zinc-800'}">
-                ${m.content}
-            </div>
-        </div>
-    `).join('');
-    win.scrollTop = win.scrollHeight;
-}
-async function saveThought() {
-    const input = document.getElementById('thoughtInput');
-    const thought = input.value.trim();
-    if (!thought) return;
-    const btn = document.getElementById('saveButton');
-    const originalHTML = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>Saving...`;
-    const res = await fetch('/api/save_thought', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({thought})});
-    const data = await res.json();
-    btn.disabled = false;
-    btn.innerHTML = originalHTML;
-    const replySection = document.getElementById('replySection');
-    if (data.success) {
-        replySection.innerHTML = `
-            <div class="text-sm font-semibold mb-1">🤖 2nd Brain Reply:</div>
-            <p>${data.reply}</p>
-        `;
-        input.value = '';
-        renderTable();
-        refreshStats();
-    } else {
-        replySection.innerHTML = `<p class="text-red-600">Error: ${data.reply}</p>`;
-    }
-}
+
+/* ==================== PROMPTS TAB JS ==================== */
 async function loadPrompts() {
     const res = await fetch('/api/prompts');
     const data = await res.json();
@@ -1027,29 +933,25 @@ function updateThresholdValue() {
 async function saveThreshold() {
     await fetch('/api/save_threshold', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({value: currentThreshold})});
 }
+
 function switchTab(n) {
     document.querySelectorAll('#tab0,#tab1,#tab2,#tab3').forEach((el,i)=>el.classList.toggle('hidden', i!==n));
     document.getElementById('tabTitle').textContent = ['Dashboard','AI Chat','Models Config','Prompts Config'][n];
-    document.querySelectorAll('.tab-btn').forEach((el, i) => {
-        if (i === n) {
-            el.classList.add('bg-zinc-800', 'text-white');
-            el.classList.remove('text-zinc-400');
-        } else {
-            el.classList.remove('bg-zinc-800', 'text-white');
-            el.classList.add('text-zinc-400');
-        }
-    });
-    if (n===2) loadModels().then(() => renderModelTable());
-    if (n===3) loadPrompts();
+    document.querySelectorAll('.tab-btn').forEach((el,i)=>el.classList.toggle('bg-zinc-800', i===n));
     if (n===0) { renderTable(); refreshStats(); }
+    if (n===2) { loadModels().then(() => renderModelTable()); }
+    if (n===3) { loadPrompts(); }
 }
-document.getElementById('thoughtFilter').addEventListener('keyup', () => {
+
+document.getElementById('thoughtFilter').addEventListener('keyup', () => renderTable());
+document.getElementById('semanticToggle').addEventListener('change', (e) => {
+    useSemantic = e.target.checked;
     renderTable();
 });
+
 window.onload = () => {
     refreshStats();
     renderTable();
-    loadPrompts();
     switchTab(0);
     highlightActiveCard();
 }

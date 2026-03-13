@@ -1,5 +1,5 @@
 # filename: second_brain_builder/requirements.txt
-# purpose: Added chromadb for vector memory layer (ChromaDB #1 integration)
+# purpose: Dependencies unchanged (modular split does not add new packages)
 
 chromadb
 fastapi

@@ -2,7 +2,7 @@
 # purpose: Updated to ensure logs/ and vault/ are never committed (but still created by run.sh)
 
 # Runtime folders (never commit)
-logs/
+#logs/
 vault/
 vector_index/
 

@@ -1,11 +1,17 @@
 # filename: second_brain_builder/.gitignore
-# purpose: Clean git repo - ignore venv, generated output, logs, caches
+# purpose: Updated to ensure logs/ and vault/ are never committed (but still created by run.sh)
 
-.venv/
+# Runtime folders (never commit)
 logs/
-output/
+vault/
+vector_index/
+
+# Standard ignores
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .DS_Store
+*.db
+*.log
